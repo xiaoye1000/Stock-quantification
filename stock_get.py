@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+#用于获取股票行情数据，带有两个函数
+
 import pandas as pd
 import datetime
 import tushare as ts
@@ -16,7 +18,7 @@ def handle_api_errors(func):
         except ts.exception.RequestError as e:
             print(f"Tushare API错误: {str(e)}")
         except bs.common.exception.BaostockException as e:
-            print(f"Baostock 错误: {str(e)}")
+            print(f"Baostock API错误: {str(e)}")
         except ValueError as e:
             print(f"参数错误: {str(e)}")
         except Exception as e:
@@ -26,11 +28,13 @@ def handle_api_errors(func):
 
 #基于Tushare Pro的股票日线行情数据获取
 #已对输出结果进行规整化，若token或API不可用，请使用其他函数
+#输入值：code_val:股票代码后加.SH（上证股票）或.SZ（深证股票）
+#输入值：start_val,end_val:格式为YYYYMMDD形式的日期
 @handle_api_errors
 
 def pro_daily_stock(code_val,start_val,end_val):
     #Token接口API值
-    token = ""
+    token = ''
     pro = ts.pro_api(token)
     
     #Tushare获取股票信息
@@ -54,11 +58,16 @@ def pro_daily_stock(code_val,start_val,end_val):
 
 #基于Baostock的股票日线行情数据获取
 #已对输出结果进行规整化
+#输入值：code_val:sh.（上海）或sz.（深圳）加股票代码
+#输入值：start_val,end_val:格式为YYYY-MM-DD形式的日期
+#输入值：adjust_val: 2:默认前复权 1:后复权 3:不复权
+#输入值：already_login：是否需要登入，默认需要，在外部代码登入可以减少运行时间
 @handle_api_errors
 
-def bs_daily_stock(code_val,start_val,end_val,adjust_val='2'):
+def bs_daily_stock(code_val,start_val,end_val,adjust_val='2',already_login=False):
     #### 登陆系统 ####
-    lg = bs.login()
+    if already_login==False:
+        lg = bs.login()
     
     #获取历史行情数据
     freq_val='d'#日k线
@@ -73,12 +82,11 @@ def bs_daily_stock(code_val,start_val,end_val,adjust_val='2'):
         data_list.append(df_bs.get_row_data())
     result = pd.DataFrame(data_list, columns=df_bs.fields)
 
-    #处理格式
-    result.close = result.close.astype('float64')
-    result.open = result.open.astype('float64')
-    result.low = result.low.astype('float64')
-    result.high = result.high.astype('float64')
-    result.volume = result.volume.astype('float64')
+    #数据处理
+    numeric_cols = ['close','open','low','high','volume']
+    for col in numeric_cols:
+        result[col] = pd.to_numeric(result[col], errors='coerce')  # 安全转换，处理空值
+    
     result.volume = result.volume/100 #单位转换每股和每手
     
     #处理索引时间
@@ -91,5 +99,6 @@ def bs_daily_stock(code_val,start_val,end_val,adjust_val='2'):
     df_recon = pd.DataFrame(recon_data)
     
     #退出系统
-    bs.logout()
+    if already_login==False:
+        bs.logout()
     return df_recon
