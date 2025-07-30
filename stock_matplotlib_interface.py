@@ -10,6 +10,9 @@ import sqlite3
 #绘图
 import matplotlib.pyplot as plt
 
+#k线
+import mpl_finance as mpf
+
 #将各种不同类型的图表函数注册到该容器中，方便调用
 class Def_Types_Pool():
     #构造函数
@@ -32,6 +35,7 @@ class Def_Types_Pool():
         else:
             raise ValueError('Route "{}"" has not been registered'.format(path))
 
+#实现各种类型的指标函数绘制
 class Mpl_Types_Draw():
     
     '''
@@ -60,7 +64,7 @@ class Mpl_Types_Draw():
         #mpf.candlestick2_ochl(graph, df_dat['open'], df_dat['close'], df_dat['high'], df_dat['low'], width=0.5,
         #                      colorup='r', colordown='g') # 绘制K线走势
         # 方案二
-        ohlc = list(zip(np.arange(0,len(df_index)),df_dat['Open'], df_dat['Close'], df_dat['High'], df_dat['Low'])) # 使用zip方法生成数据列表
+        ohlc = list(zip(np.arange(0,len(df_index)),df_dat['open'], df_dat['close'], df_dat['high'], df_dat['low'])) # 使用zip方法生成数据列表
         mpf.candlestick_ochl(graph, ohlc, width=0.2, colorup='r', colordown='g', alpha=1.0) # 绘制K线走势
     
     #-------------------------------------------
@@ -106,7 +110,6 @@ class Mpl_Types_Draw():
     def hline_plot(df_index, df_dat, graph):
         for key, val in df_dat.items():
             graph.axhline(val['pos'], c=val['c'], label=key)
-
 
 #绘制完整的图表
 class Mpl_Visual_If(Mpl_Types_Draw): 
@@ -182,3 +185,131 @@ class Mpl_Visual_If(Mpl_Types_Draw):
         
         self.fig_config(**kwargs)# 配置图表属性
         self.fig_show(**kwargs)# 显示图表
+
+#-------------------------------------------------------------------------------------
+#基础预设函数
+def basic_set_plot_stock(table_name, stock_code):
+    # 基础配置
+    plt.rcParams['font.sans-serif'] = ['SimHei'] 
+    plt.rcParams['axes.unicode_minus'] = False
+    
+    #注意需要先生成数据库
+    #连接/创建数据库
+    conn = sqlite3.connect('stock-data.db')
+    
+    try:
+        # 读取数据
+        query = f"SELECT * FROM '{table_name}' WHERE code = '{stock_code}'"
+        stock_dat = pd.read_sql_query(query, conn)
+        
+        if stock_dat.empty:
+            print(f"警告: 未找到 {table_name} 表中代码为 {code} 的数据")
+            return stock_dat
+        
+        #让x轴显示，需要把索引设为日期
+        stock_dat['date'] = pd.to_datetime(stock_dat['date'])
+        stock_dat = stock_dat.set_index('date')
+        
+        return stock_dat
+    
+    except Exception as e:
+        print(f"数据库操作出错: {str(e)}")
+        return pd.DataFrame()
+    
+    finally:
+        # 确保关闭数据库连接
+        conn.close()
+
+#-------------------------------------------------------------------------------------
+#通过接口绘制各类图表的函数
+def draw_kline_chart(table_name, stock_code):
+    stock_dat=basic_set_plot_stock(table_name, stock_code)
+    layout_dict = {'figsize': (12, 6),
+                   'index': stock_dat.index,
+                   'draw_kind': {'ochl':
+                                     {'open': stock_dat.open,
+                                      'close': stock_dat.close,
+                                      'high': stock_dat.high,
+                                      'low': stock_dat.low
+                                      }
+                                 },
+                   'title': "002625光启技术日k线",
+                   'ylabel': "价格"}
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+
+#-------------------------------------------
+#绘制成交量
+def draw_volume_chart(table_name, stock_code):
+    stock_dat=basic_set_plot_stock(table_name, stock_code)
+    bar_red = np.where(stock_dat.open < stock_dat.close,  stock_dat.volume, 0) # 绘制BAR>0 ，上涨
+    bar_green = np.where(stock_dat.open > stock_dat.close,  stock_dat.volume, 0) # 绘制BAR<0 下跌
+
+    layout_dict = {'figsize': (14, 5),
+                   'index': stock_dat.index,
+                   'draw_kind': {'bar':
+                                     {'bar_red': bar_red,
+                                      'bar_green': bar_green
+                                      }
+                                 },
+                   'title': "002625光启技术-成交量",
+                   'ylabel': "成交量"}
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+#-------------------------------------------
+#绘制均线（20日，30日，60日均线）
+def draw_sma_chart(table_name, stock_code):
+    stock_dat=basic_set_plot_stock(table_name, stock_code)
+    
+    #设置常见均线
+    stock_dat['SMA20'] = stock_dat['close'].rolling(window=20).mean()
+    stock_dat['SMA30'] = stock_dat['close'].rolling(window=30).mean()
+    stock_dat['SMA60'] = stock_dat['close'].rolling(window=60).mean()
+        
+    layout_dict = {'figsize': (14, 5),
+                   'index': stock_dat.index,
+                   'draw_kind': {'line':
+                                     {'SMA20': stock_dat.SMA20,
+                                      'SMA30': stock_dat.SMA30,
+                                      'SMA60': stock_dat.SMA60
+                                      }
+                                 },
+                   'title': "002625光启技术-均线",
+                   'ylabel': "价格",
+                   'xlabel': "日期",
+                   'xticks': 15,
+                   'legend': 'best',
+                   'xticklabels':'%Y-%m-%d'}
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+    
+    
+#-------------------------------------------
+#绘制KDJ图
+def draw_kdj_chart(table_name, stock_code):
+    stock_dat=basic_set_plot_stock(table_name, stock_code)
+
+    #计算RSV
+    low_list = stock_dat['low'].rolling(9, min_periods=1).min()
+    high_list = stock_dat['high'].rolling(9, min_periods=1).max()
+    rsv = (stock_dat['close'] - low_list) / (high_list - low_list) * 100
+    
+    #计算KDJ
+    stock_dat['K'] = rsv.ewm(com=2, adjust=False).mean()
+    stock_dat['D'] = stock_dat['K'].ewm(com=2, adjust=False).mean()
+    stock_dat['J'] = 3 * stock_dat['K'] - 2 * stock_dat['D']
+
+    layout_dict = {'figsize': (14, 5),
+                   'index': stock_dat.index,
+                   'draw_kind': {'line':
+                                     {'K': stock_dat.K,
+                                      'D': stock_dat.D,
+                                      'J': stock_dat.J
+                                      }
+                                 },
+                   'title': "002625光启技术-KDJ",
+                   'ylabel': "KDJ",
+                   'legend': 'best'}
+    
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
