@@ -37,6 +37,7 @@ def create_stock_db(table_name,db_path='stock-data.db',keep_open=False):
     CREATE TABLE IF NOT EXISTS {table_name} (
         date          TEXT    NOT NULL,
         code          TEXT    NOT NULL,
+        code_name     TEXT,
         open          REAL,
         high          REAL,
         low           REAL,
@@ -58,12 +59,27 @@ def create_stock_db(table_name,db_path='stock-data.db',keep_open=False):
     conn.commit
     
     if keep_open:
-        print("已创建数据库")
+        print(f"已创建数据库表: {table_name}")
         return conn  # 返回连接对象供后续使用
     else:
         print("已创建数据库（关闭连接模式）")
         conn.close()
         return None
+
+# 从JSON文件加载股票代码和名称映射
+def load_stock_mapping(json_path='stock_pool.json'):
+    with open(json_path, 'r', encoding='utf-8') as f:
+        stock_data = json.load(f)
+    
+    # 创建代码到名称的映射字典
+    code_name_map = {}
+    for category, stocks in stock_data.items():
+        # 只处理股票类型
+        if category == '股票':
+            for name, code in stocks.items():
+                code_name_map[code] = name
+    
+    return code_name_map
 
 #json数据存入到数据库
 #table_name自选池名称
@@ -72,6 +88,9 @@ def stock_to_sql_for(table_name,start,end):
     
     #调用创建数据库
     con_name=create_stock_db(table_name,db_path='stock-data.db',keep_open=True)
+    
+    # 加载股票代码-名称映射
+    code_name_map = load_stock_mapping()
     
     #调用读取json
     stock_code = json_to_str()
@@ -82,6 +101,9 @@ def stock_to_sql_for(table_name,start,end):
         try:
             #调用原始数据读取
             data = bs_daily_original_stock(code,start,end,adjust_val='2',already_login=True)
+            #股票名称
+            stock_name = code_name_map.get(code, "未知股票")
+            data['code_name'] = stock_name
             time.sleep(0.2)
             data.to_sql(table_name,con_name,index=False,if_exists='append')#存到数据库
             print("right code is %s"%code)
@@ -121,7 +143,7 @@ def sql_drop_table(table_name):
         if conn:
             conn.close()
 
-#查询表函数
+#查询表所有的值的函数
 #table_name自选池名称
 def sql_query_table(table_name):
     db_path='stock-data.db'
