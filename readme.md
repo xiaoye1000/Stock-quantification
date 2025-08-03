@@ -1,14 +1,11 @@
 股票量化分析工具
 ========
 
-https://img.shields.io/badge/Python-3.8+-blue.svg
-
-https://img.shields.io/badge/License-MIT-green.svg
+![Python版本](https://img.shields.io/badge/Python-3.8+-blue.svg)![许可证](https://img.shields.io/badge/License-MIT-green.svg)
 
 一个基于个人兴趣开发的股票量化分析工具，用于获取、处理和可视化A股历史市场数据。
--------
-
 项目概述
+
 -------
 
 该项目是一个轻量级的股票数据分析系统，主要功能包括：
@@ -106,23 +103,9 @@ https://img.shields.io/badge/License-MIT-green.svg
 
 `pip install -r requirements.txt`
 
-### 获取数据
+### 使用示例
 
-`# 示例代码：
 
-### 可视化示例
-
-项目结构
--------
-
-示例图表
--------
-
-### K线图与移动平均线
-
-（图片
-
-### MACD指标分析
 
 注意事项
 -------
@@ -144,8 +127,10 @@ https://img.shields.io/badge/License-MIT-green.svg
 
 
 
-* [ ] 
-许可证
+
+
+* [ ] 许可证
+
 ------
 
 本项目采用 [MIT 许可证](LICENSE) 授权。
