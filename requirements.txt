@@ -1,0 +1,9 @@
+pandas
+numpy
+mplfinance
+TA-Lib
+pandas-datareader
+matplotlib
+tushare
+baostock
+statsmodels
