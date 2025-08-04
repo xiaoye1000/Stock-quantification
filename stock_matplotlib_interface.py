@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 #k线
 import mpl_finance as mpf
 
+#TA-Lib
+import talib
+
 #将各种不同类型的图表函数注册到该容器中，方便调用
 class Def_Types_Pool():
     #构造函数
@@ -587,6 +590,127 @@ def draw_fibonacci_chart(table_name, stock_code,start=None,end=None):
                    'title': f"{full_name}-黄金分割支撑/阻力位",
                    'ylabel': "价格",
                    'legend': 'best'}
+    
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+    
+#-------------------------------------------------------------------------------------
+#通过TA-Lib计算的各种技术指标，绘制各类图表
+
+#-------------------------------------------
+# 绘制talib SMA移动平均线
+def draw_talib_sma_chart(table_name, stock_code,start=None,end=None):
+    stock_dat, full_name = basic_set_plot_stock(table_name, stock_code,start,end)
+
+    stock_dat['SMA20'] = talib.SMA(stock_dat.close.values, timeperiod=20)
+    stock_dat['SMA30'] = talib.SMA(stock_dat.close.values, timeperiod=30)
+    stock_dat['SMA60'] = talib.SMA(stock_dat.close.values, timeperiod=60)
+    #stock_dat['SMA20'].fillna(method='bfill',inplace=True)
+    #stock_dat['SMA30'].fillna(method='bfill',inplace=True)
+    #stock_dat['SMA60'].fillna(method='bfill',inplace=True)
+
+
+    layout_dict = {'figsize': (14, 5),
+                   'index': stock_dat.index,
+                   'draw_kind': {'line':
+                                     {'SMA20': stock_dat.SMA20,
+                                      'SMA30': stock_dat.SMA30,
+                                      'SMA60': stock_dat.SMA60
+                                      }
+                                 },
+                   'title': f"{full_name}-SMA-talib",
+                   'ylabel': "价格",
+                   'legend': 'best'}
+    
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+
+#-------------------------------------------
+# 绘制talib MACD
+def draw_talib_macd_chart(table_name, stock_code,start=None,end=None):
+    stock_dat, full_name = basic_set_plot_stock(table_name, stock_code,start,end)
+
+    macd_dif, macd_dea, macd_bar = talib.MACD(stock_dat['close'].values, fastperiod=12, slowperiod=26, signalperiod=9)
+
+    macd_dif[np.isnan(macd_dif)] ,macd_dea[np.isnan(macd_dea)], macd_bar[np.isnan(macd_bar)]= 0, 0, 0
+    
+    bar_red = np.where(macd_bar > 0,  2 * macd_bar, 0)# 绘制BAR>0 柱状图
+    bar_green = np.where(macd_bar < 0,  2 * macd_bar, 0)# 绘制BAR<0 柱状图
+
+    layout_dict = {'figsize': (14, 5),
+                   'index': stock_dat.index,
+                   'draw_kind': {'bar':
+                                     {'bar_red': bar_red,
+                                      'bar_green': bar_green
+                                      },
+                                 'line':
+                                     {'macd dif': macd_dif,
+                                      'macd dea': macd_dea
+                                      }
+                                 },
+                   'title': f"{full_name}-MACD-talib",
+                   'ylabel': "MACD",
+                   'legend': 'best'}
+    
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+
+#-------------------------------------------
+#绘制talib KDJ
+def draw_takdj_chart(table_name, stock_code,start=None,end=None):
+    stock_dat, full_name = basic_set_plot_stock(table_name, stock_code,start,end)
+
+    stock_dat['K'], stock_dat['D'] = talib.STOCH(stock_dat.high.values, stock_dat.low.values, stock_dat.close.values,\
+                                           fastk_period=9, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
+    stock_dat['K'].fillna(0,inplace=True), stock_dat['D'].fillna(0,inplace=True)
+    stock_dat['J'] = 3 * stock_dat['K'] - 2 * stock_dat['D']
+
+    layout_dict = {'figsize': (14, 5),
+                   'index': stock_dat.index,
+                   'draw_kind': {'line':
+                                     {'K': stock_dat.K,
+                                      'D': stock_dat.D,
+                                      'J': stock_dat.J
+                                      }
+                                 },
+                   'title': f"{full_name}-KDJ-talib",
+                   'ylabel': "KDJ",
+                   'legend': 'best'}
+    
+    app=Mpl_Visual_If()
+    app.fig_output(**layout_dict)
+    
+#-------------------------------------------
+# 绘制 talib K线形态 乌云压顶
+#第一日长阳，第二日开盘价高于前一日最高价
+def draw_talib_kpattern_annotate(table_name, stock_code,start=None,end=None):
+    stock_dat, full_name = basic_set_plot_stock(table_name, stock_code,start,end)
+    
+    CDLDARKCLOUDCOVER = talib.CDLDARKCLOUDCOVER(stock_dat.open.values, stock_dat.high.values, stock_dat.low.values,stock_dat.close.values)
+
+    pattern = stock_dat[(CDLDARKCLOUDCOVER == 100)|(CDLDARKCLOUDCOVER == -100)]
+
+    layout_dict = {'figsize': (14, 7),
+                   'index': stock_dat.index,
+                   'draw_kind': {'ochl':# 绘制K线图
+                                     {'open': stock_dat.open,
+                                      'close': stock_dat.close,
+                                      'high': stock_dat.high,
+                                      'low': stock_dat.low
+                                      },
+                                 'annotate':
+                                     {'CDLDARKCLOUDCOVER':
+                                          {'andata': pattern,
+                                           'va': 'bottom',
+                                           'xy_y': 'high',
+                                           'xytext': (0,stock_dat['close'].mean()),
+                                           'fontsize': 8,
+                                           'arrow': dict(arrowstyle='->',facecolor='blue', connectionstyle="arc3,rad=.2")
+                                           }
+                                      }
+                                 },
+                   'title': f"{full_name}-日K线-乌云压顶标注",
+                   'ylabel': "价格"}
     
     app=Mpl_Visual_If()
     app.fig_output(**layout_dict)
