@@ -1,26 +1,16 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[10]:
-
-
 #用于获取/更新当前市场的指数、个股、转债
 #过滤已退市的个股
 #结果存储在stock_pool.json
-
-
-# In[11]:
-
 
 import json
 import pandas as pd
 import datetime
 import tushare as ts
 import baostock as bs
-
-
-# In[12]:
-
+import os
 
 def get_all_stock_to_pool():
     print('执行Baostock的全行情获取')
@@ -61,7 +51,11 @@ def get_all_stock_to_pool():
     }
     
     #将数据写入json文件中
-    with open("stock_pool.json","w",encoding='utf-8') as f:
+    data_dir = os.path.join(os.path.dirname(__file__), '../../data')  # 定位到data目录
+    os.makedirs(data_dir, exist_ok=True)  # 确保目录存在
+    json_path = os.path.join(data_dir, 'stock_pool.json')  # 拼接完整路径
+    
+    with open(json_path,"w",encoding='utf-8') as f:
         json.dump(stock_index,f,ensure_ascii=False,indent=4)
 
     print('完成：获取/更新当前市场的指数、个股、转债')
