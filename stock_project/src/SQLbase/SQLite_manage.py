@@ -5,29 +5,46 @@
 
 import pandas as pd
 import time
+import os
 
 #json文件
 import json
 
 #baostock部分
 import baostock as bs
-from stock_get import bs_daily_original_stock
+from ..data_acquisition.stock_get import bs_daily_original_stock
 
 #数据库
 import sqlite3
+
+#获取数据路径
+#内置函数，无需使用
+def get_data_dir():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, '../../data')
+    os.makedirs(data_dir, exist_ok=True)  # 确保目录存在
+    return data_dir
 
 #读取json文件
 #需要先运行生成股票池get_stock_pool，确保有stock_pool.json获取所有股票/指数
 #内置函数，无需使用
 def json_to_str():
-    with open("stock_pool.json","r",encoding='utf-8') as load_f:
+    # 获取数据目录
+    data_dir = get_data_dir()
+    json_path = os.path.join(data_dir, 'stock_pool.json') 
+    
+    with open(json_path,"r",encoding='utf-8') as load_f:
         stock_index = json.load(load_f)
     return stock_index
 
 #连接/创建数据库
 #数据库文件固定存储在stock-data.db中
 #内置函数，无需使用
-def create_stock_db(table_name,db_path='stock-data.db',keep_open=False):
+def create_stock_db(table_name,db_name='stock-data.db',keep_open=False):
+    # 获取数据目录
+    data_dir = get_data_dir()
+    db_path = os.path.join(data_dir, db_name) 
+    
     conn = sqlite3.connect(db_path)
 
     #cursor对象
@@ -60,14 +77,18 @@ def create_stock_db(table_name,db_path='stock-data.db',keep_open=False):
     
     if keep_open:
         print(f"已创建数据库表: {table_name}")
-        return conn  # 返回连接对象供后续使用
+        return conn 
     else:
         print("已创建数据库（关闭连接模式）")
         conn.close()
         return None
 
 # 从JSON文件加载股票代码和名称映射
-def load_stock_mapping(json_path='stock_pool.json'):
+def load_stock_mapping(json_path=None):
+    if json_path is None:
+        data_dir = get_data_dir()
+        json_path = os.path.join(data_dir, 'stock_pool.json')
+        
     with open(json_path, 'r', encoding='utf-8') as f:
         stock_data = json.load(f)
     
@@ -85,6 +106,9 @@ def load_stock_mapping(json_path='stock_pool.json'):
 #table_name自选池名称
 #start,end:格式为YYYY-MM-DD形式的日期
 def stock_to_sql_for(table_name,start,end):
+    # 获取数据库路径
+    data_dir = get_data_dir()
+    db_path = os.path.join(data_dir, 'stock-data.db')
     
     #调用创建数据库
     con_name=create_stock_db(table_name,db_path='stock-data.db',keep_open=True)
@@ -116,11 +140,15 @@ def stock_to_sql_for(table_name,start,end):
     #关闭数据库
     print("导入数据库完成")
     con_name.close()
+    print(f"数据已保存到: {db_path}")
 
 #删除表函数
 #table_name自选池名称
 def sql_drop_table(table_name):
-    db_path='stock-data.db'
+    # 获取数据库路径
+    data_dir = get_data_dir()
+    db_path = os.path.join(data_dir, 'stock-data.db')
+    
     conn = None
     
     try:
@@ -146,7 +174,10 @@ def sql_drop_table(table_name):
 #查询表所有的值的函数
 #table_name自选池名称
 def sql_query_table(table_name):
-    db_path='stock-data.db'
+    # 获取数据库路径
+    data_dir = get_data_dir()
+    db_path = os.path.join(data_dir, 'stock-data.db')
+    
     conn = None
     
     try:
