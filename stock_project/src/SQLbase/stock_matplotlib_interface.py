@@ -3,6 +3,7 @@
 
 import pandas as pd
 import numpy as np
+import os
 
 #数据库
 import sqlite3
@@ -16,8 +17,17 @@ import mpl_finance as mpf
 #TA-Lib
 import talib
 
+#获取数据路径
+#内置函数，无需使用
+def get_data_dir():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, '../../data')
+    os.makedirs(data_dir, exist_ok=True)  # 确保目录存在
+    return data_dir
+
 #将各种不同类型的图表函数注册到该容器中，方便调用
-class Def_Types_Pool():
+#内部函数
+class Def_Types_Pool:
     #构造函数
     def __init__(self):
         self.routes = {}
@@ -39,13 +49,14 @@ class Def_Types_Pool():
             raise ValueError('Route "{}"" has not been registered'.format(path))
 
 #实现各种类型的指标函数绘制
-class Mpl_Types_Draw():
-    
-    '''
+#内部函数
+class Mpl_Types_Draw:
+
+    """
     df_index: 时间序列索引
     df_dat: 数据
     graph: matplotlib的axes对象
-    '''
+    """
 
     #实例化Def_Types_Pool
     mpl = Def_Types_Pool()
@@ -199,10 +210,14 @@ def basic_set_plot_stock(table_name, stock_code,start=None, end=None):
     
     stock_dat = pd.DataFrame()
     full_name = f"{stock_code} (未知股票)"  # 默认名称
-    
+
+    # 获取数据库路径
+    data_dir = get_data_dir()
+    db_path = os.path.join(data_dir, 'stock-data.db')
+
     #注意需要先生成数据库
     #连接/创建数据库
-    conn = sqlite3.connect('stock-data.db')
+    conn = sqlite3.connect(db_path)
     
     try:
         # 获取股票名称
@@ -226,7 +241,7 @@ def basic_set_plot_stock(table_name, stock_code,start=None, end=None):
         stock_dat = pd.read_sql_query(query, conn)
         
         if stock_dat.empty:
-            print(f"警告: 未找到 {table_name} 表中代码为 {code} 的数据")
+            print(f"警告: 未找到 {table_name} 表中代码为 {stock_code} 的数据")
             return stock_dat, full_name
         
         #让x轴显示，需要把索引设为日期
@@ -248,7 +263,7 @@ def basic_set_plot_stock(table_name, stock_code,start=None, end=None):
 '''
 table_name:数据库名，和创建时一样
 stock_code：股票名称，sz.或sh.+6位代码
-start=None,end=None：开始结束日期，默认数据库里最开始/最后的日期
+start=None,end=None：开始结束日期，默认数据库里最开始/最后的日期,格式为YYYY-MM-DD
 '''
 
 #-------------------------------------------
@@ -660,7 +675,7 @@ def draw_talib_macd_chart(table_name, stock_code,start=None,end=None):
 def draw_takdj_chart(table_name, stock_code,start=None,end=None):
     stock_dat, full_name = basic_set_plot_stock(table_name, stock_code,start,end)
 
-    stock_dat['K'], stock_dat['D'] = talib.STOCH(stock_dat.high.values, stock_dat.low.values, stock_dat.close.values,\
+    stock_dat['K'], stock_dat['D'] = talib.STOCH(stock_dat.high.values, stock_dat.low.values, stock_dat.close.values,
                                            fastk_period=9, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
     stock_dat['K'].fillna(0,inplace=True), stock_dat['D'].fillna(0,inplace=True)
     stock_dat['J'] = 3 * stock_dat['K'] - 2 * stock_dat['D']

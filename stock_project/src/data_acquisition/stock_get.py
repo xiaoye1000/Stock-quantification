@@ -78,8 +78,8 @@ already_login：是否需要登入，默认需要，在外部代码登入可以�
 
 def bs_daily_stock(code_val,start_val,end_val,adjust_val='2',already_login=False):
     #### 登陆系统 ####
-    if already_login==False:
-        lg = bs.login()
+    if not already_login:
+        bs.login()
     
     #获取历史行情数据
     freq_val='d'#日k线
@@ -111,7 +111,7 @@ def bs_daily_stock(code_val,start_val,end_val,adjust_val='2',already_login=False
     df_recon = pd.DataFrame(recon_data)
     
     #退出系统
-    if already_login==False:
+    if not already_login:
         bs.logout()
     return df_recon
 
@@ -150,8 +150,8 @@ already_login：是否需要登入，默认需要，在外部代码登入可以�
 
 def bs_daily_original_stock(code_val,start_val,end_val,adjust_val='2',already_login=False):
     #### 登陆系统 ####
-    if already_login==False:
-        lg = bs.login()
+    if not already_login:
+        bs.login()
     
     #获取历史行情数据
     freq_val='d'#日k线
@@ -167,6 +167,6 @@ def bs_daily_original_stock(code_val,start_val,end_val,adjust_val='2',already_lo
     result = pd.DataFrame(data_list, columns=df_bs.fields)
 
     #退出系统
-    if already_login==False:
+    if not already_login:
         bs.logout()
     return result

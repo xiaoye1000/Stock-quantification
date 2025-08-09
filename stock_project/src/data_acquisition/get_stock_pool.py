@@ -7,8 +7,6 @@
 
 import json
 import pandas as pd
-import datetime
-import tushare as ts
 import baostock as bs
 import os
 
@@ -59,4 +57,5 @@ def get_all_stock_to_pool():
         json.dump(stock_index,f,ensure_ascii=False,indent=4)
 
     print('完成：获取/更新当前市场的指数、个股、转债')
+    print(f'stock_poll.json文件存储在{json_path}')
 

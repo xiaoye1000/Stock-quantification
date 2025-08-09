@@ -40,10 +40,7 @@ def json_to_str():
 #连接/创建数据库
 #数据库文件固定存储在stock-data.db中
 #内置函数，无需使用
-def create_stock_db(table_name,db_name='stock-data.db',keep_open=False):
-    # 获取数据目录
-    data_dir = get_data_dir()
-    db_path = os.path.join(data_dir, db_name) 
+def create_stock_db(table_name,db_path,keep_open=False):
     
     conn = sqlite3.connect(db_path)
 
@@ -73,7 +70,7 @@ def create_stock_db(table_name,db_name='stock-data.db',keep_open=False):
     
     c.execute(create_table_sql)
 
-    conn.commit
+    conn.commit()
     
     if keep_open:
         print(f"已创建数据库表: {table_name}")
@@ -111,7 +108,7 @@ def stock_to_sql_for(table_name,start,end):
     db_path = os.path.join(data_dir, 'stock-data.db')
     
     #调用创建数据库
-    con_name=create_stock_db(table_name,db_path='stock-data.db',keep_open=True)
+    con_name=create_stock_db(table_name, db_path, keep_open=True)
     
     # 加载股票代码-名称映射
     code_name_map = load_stock_mapping()
@@ -119,7 +116,7 @@ def stock_to_sql_for(table_name,start,end):
     #调用读取json
     stock_code = json_to_str()
     
-    lg = bs.login()
+    bs.login()
     
     for code in list(stock_code['股票'].values()):
         try:
