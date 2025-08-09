@@ -10,12 +10,14 @@ import sqlite3
 
 #绘图
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 #k线
 import mpl_finance as mpf
 
 #TA-Lib
 import talib
+from talib import MA_Type #枚举MA_Type类型
 
 #获取数据路径
 #内置函数，无需使用
@@ -27,7 +29,7 @@ def get_data_dir():
 
 #将各种不同类型的图表函数注册到该容器中，方便调用
 #内部函数
-class Def_Types_Pool:
+class DefTypesPool:
     #构造函数
     def __init__(self):
         self.routes = {}
@@ -41,7 +43,6 @@ class Def_Types_Pool:
     
     #根据路径输出已注册的函数
     def route_output(self, path):
-        #print(u"output [%s] function:" % path)
         function_val = self.routes.get(path)
         if function_val:
             return function_val
@@ -50,7 +51,7 @@ class Def_Types_Pool:
 
 #实现各种类型的指标函数绘制
 #内部函数
-class Mpl_Types_Draw:
+class MplTypesDraw:
 
     """
     df_index: 时间序列索引
@@ -58,14 +59,14 @@ class Mpl_Types_Draw:
     graph: matplotlib的axes对象
     """
 
-    #实例化Def_Types_Pool
-    mpl = Def_Types_Pool()
+    #实例化DefTypesPool
+    mpl = DefTypesPool()
 
     #-------------------------------------------
     #使用装饰器，注册到self.routes中
     #折线图
     @mpl.route_types(u"line")
-    def line_plot(df_index, df_dat, graph):
+    def line_plot(self,df_index, df_dat, graph):
         # 绘制line图
         for key, val in df_dat.items():
             graph.plot(np.arange(0, len(val)), val, label=key, lw=1.0)
@@ -73,7 +74,7 @@ class Mpl_Types_Draw:
     #-------------------------------------------
     # 绘制ochl图(k线)
     @mpl.route_types(u"ochl")
-    def ochl_plot(df_index, df_dat, graph):
+    def ochl_plot(self,df_index, df_dat, graph):
         # 方案一
         #mpf.candlestick2_ochl(graph, df_dat['open'], df_dat['close'], df_dat['high'], df_dat['low'], width=0.5,
         #                      colorup='r', colordown='g') # 绘制K线走势
@@ -84,7 +85,7 @@ class Mpl_Types_Draw:
     #-------------------------------------------
     #柱状图（成交量）
     @mpl.route_types(u"bar")
-    def bar_plot(df_index, df_dat, graph):
+    def bar_plot(self,df_index, df_dat, graph):
         #graph.bar(np.arange(0, len(df_index)), df_dat['Volume'], \
         #         color=['g' if df_dat['Open'][x] > df_dat['Close'][x] else 'r' for x in range(0,len(df_index))])
 
@@ -94,7 +95,7 @@ class Mpl_Types_Draw:
     #-------------------------------------------
     # 移动平均线（均线）
     @mpl.route_types(u"hline")
-    def hline_plot(df_index, df_dat, graph):
+    def hline_plot(self,df_index, df_dat, graph):
         #子图上绘制
         for key, val in df_dat.items():
             graph.axhline(val['pos'], c=val['c'], label=key)
@@ -102,7 +103,7 @@ class Mpl_Types_Draw:
     #-------------------------------------------
     #金叉/死叉标注点
     @mpl.route_types(u"annotate")
-    def annotate_plot(df_index, df_dat, graph):
+    def annotate_plot(self,df_index, df_dat, graph):
         #外层循环每种标注类型
         for key, val in df_dat.items():
             #内层循环每个标注点
@@ -121,16 +122,16 @@ class Mpl_Types_Draw:
     #-------------------------------------------
     #黄金分割线(水平线)
     @mpl.route_types(u"hline")
-    def hline_plot(df_index, df_dat, graph):
+    def hline_plot(self,df_index, df_dat, graph):
         for key, val in df_dat.items():
             graph.axhline(val['pos'], c=val['c'], label=key)
 
 #绘制完整的图表
-class Mpl_Visual_If(Mpl_Types_Draw): 
+class MplVisualIf(MplTypesDraw):
 
     #构造函数
     def __init__(self):
-        Mpl_Types_Draw.__init__(self)
+        MplTypesDraw.__init__(self)
 
     #由fig_output调用的子函数，用于创建对象和子图
     def fig_creat(self, **kwargs):
@@ -178,9 +179,11 @@ class Mpl_Visual_If(Mpl_Types_Draw):
             
         #刻度标签
         if 'xticklabels' in kwargs.keys(): # 标签设置为日期
-            self.graph.set_xticklabels([self.index.strftime(kwargs['xticklabels'])[index]                                         for index in self.graph.get_xticks()])
+            self.graph.set_xticklabels([self.index.strftime(kwargs['xticklabels'])[index]
+                                        for index in self.graph.get_xticks()])
         else:
-            self.graph.set_xticklabels([self.index.strftime('%Y-%m-%d')[index]                                         for index in self.graph.get_xticks()])
+            self.graph.set_xticklabels([self.index.strftime('%Y-%m-%d')[index]
+                                        for index in self.graph.get_xticks()])
             
     #调由fig_output调用的子函数,用show显示
     def fig_show(self, **kwargs):
@@ -281,7 +284,7 @@ def draw_kline_chart(table_name, stock_code,start=None,end=None):
                                  },
                    'title': f"{full_name}日k线",
                    'ylabel': "价格"}
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -300,7 +303,7 @@ def draw_volume_chart(table_name, stock_code,start=None,end=None):
                                  },
                    'title': f"{full_name}成交量",
                    'ylabel': "成交量"}
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -327,7 +330,7 @@ def draw_sma_chart(table_name, stock_code,start=None,end=None):
                    'xticks': 15,
                    'legend': 'best',
                    'xticklabels':'%Y-%m-%d'}
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -357,7 +360,7 @@ def draw_kdj_chart(table_name, stock_code,start=None,end=None):
                    'ylabel': "KDJ",
                    'legend': 'best'}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -387,7 +390,7 @@ def draw_macd_chart(table_name, stock_code,start=None,end=None):
                    'ylabel': "MACD",
                    'legend': 'best'}
 
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -437,7 +440,7 @@ def draw_cross_annotate(table_name, stock_code,start=None,end=None):
                    'xlabel': "日期",
                    'legend': 'best'}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -510,7 +513,7 @@ def draw_gap_annotate(table_name, stock_code,start=None,end=None):
                    'title': f"{full_name}-跳空缺口",
                    'ylabel': "价格"}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
 
 #-------------------------------------------
@@ -545,7 +548,7 @@ def draw_kweek_chart(table_name, stock_code,start=None,end=None):
                    'title': f"{full_name}-周K线",
                    'ylabel': "价格"}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -555,9 +558,9 @@ def draw_fibonacci_chart(table_name, stock_code,start=None,end=None):
     
     #找出此轮走势的最大值和最小值
     Fib_max = stock_dat.close.max()
-    Fib_maxid = stock_dat.index.get_loc(stock_dat.close.idxmax())
+    #Fib_maxid = stock_dat.index.get_loc(stock_dat.close.idxmax())
     Fib_min = stock_dat.close.min()
-    Fib_minid = stock_dat.index.get_loc(stock_dat.close.idxmin())
+    #Fib_minid = stock_dat.index.get_loc(stock_dat.close.idxmin())
     
     Fib_382 = (Fib_max - Fib_min) * 0.382 + Fib_min
     Fib_618 = (Fib_max - Fib_min) * 0.618 + Fib_min
@@ -606,7 +609,7 @@ def draw_fibonacci_chart(table_name, stock_code,start=None,end=None):
                    'ylabel': "价格",
                    'legend': 'best'}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------------------------------------------------
@@ -637,7 +640,7 @@ def draw_talib_sma_chart(table_name, stock_code,start=None,end=None):
                    'ylabel': "价格",
                    'legend': 'best'}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
 
 #-------------------------------------------
@@ -667,7 +670,7 @@ def draw_talib_macd_chart(table_name, stock_code,start=None,end=None):
                    'ylabel': "MACD",
                    'legend': 'best'}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
 
 #-------------------------------------------
@@ -676,7 +679,7 @@ def draw_takdj_chart(table_name, stock_code,start=None,end=None):
     stock_dat, full_name = basic_set_plot_stock(table_name, stock_code,start,end)
 
     stock_dat['K'], stock_dat['D'] = talib.STOCH(stock_dat.high.values, stock_dat.low.values, stock_dat.close.values,
-                                           fastk_period=9, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
+                                           fastk_period=9, slowk_period=3, slowk_matype=MA_Type.SMA, slowd_period=3, slowd_matype=MA_Type.SMA)
     stock_dat['K'].fillna(0,inplace=True), stock_dat['D'].fillna(0,inplace=True)
     stock_dat['J'] = 3 * stock_dat['K'] - 2 * stock_dat['D']
 
@@ -692,7 +695,7 @@ def draw_takdj_chart(table_name, stock_code,start=None,end=None):
                    'ylabel': "KDJ",
                    'legend': 'best'}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
     
 #-------------------------------------------
@@ -727,5 +730,181 @@ def draw_talib_kpattern_annotate(table_name, stock_code,start=None,end=None):
                    'title': f"{full_name}-日K线-乌云压顶标注",
                    'ylabel': "价格"}
     
-    app=Mpl_Visual_If()
+    app=MplVisualIf()
     app.fig_output(**layout_dict)
+
+#-------------------------------------------------------------------------------------
+#综合行情分析界面
+class MultiGraphIf(MplTypesDraw):
+    # 实例化DefTypesPool
+    app = DefTypesPool()
+
+    #k线图
+    @app.route_types(u"ochl")
+    def ochl_graph(self, sub_graph, stock_dat, df_dat=None):
+        type_dict = {'Open': stock_dat.open,
+                     'Close': stock_dat.close,
+                     'High': stock_dat.high,
+                     'Low': stock_dat.low
+                     }
+        view_function = MplTypesDraw.mpl.route_output(u"ochl")
+        view_function(stock_dat.index, type_dict, sub_graph)
+
+    @app.route_types(u"sma")
+    def sma_graph(self, sub_graph, stock_dat, periods):  # prepare data
+        for val in periods:
+            type_dict = {'SMA' + str(val): stock_dat.close.rolling(window=val).mean()}
+            view_function = MplTypesDraw.mpl.route_output(u"line")
+            view_function(stock_dat.index, type_dict, sub_graph)
+
+    @app.route_types(u"vol")
+    def vol_graph(self, sub_graph, stock_dat, df_dat=None):  # prepare data
+        type_dict = {'bar_red': np.where(stock_dat.open < stock_dat.close, stock_dat.volume, 0),  # 绘制BAR>0 柱状图
+                     'bar_green': np.where(stock_dat.open > stock_dat.close, stock_dat.volume, 0)  # 绘制BAR<0 柱状图
+                     }
+        view_function = MplTypesDraw.mpl.route_output(u"bar")
+        view_function(stock_dat.index, type_dict, sub_graph)
+
+    @app.route_types(u"macd")
+    def macd_graph(self, sub_graph, stock_dat, df_dat=None):  # prepare data
+
+        macd_dif = stock_dat['close'].ewm(span=12, adjust=False).mean() - stock_dat['close'].ewm(span=26, adjust=False).mean()
+        macd_dea = macd_dif.ewm(span=9, adjust=False).mean()
+        macd_bar = 2 * (macd_dif - macd_dea)
+
+        type_dict = {'bar_red': np.where(macd_bar > 0, macd_bar, 0),  # 绘制BAR>0 柱状图
+                     'bar_green': np.where(macd_bar < 0, macd_bar, 0)  # 绘制BAR<0 柱状图
+                     }
+        view_function = MplTypesDraw.mpl.route_output(u"bar")
+        view_function(stock_dat.index, type_dict, sub_graph)
+
+        type_dict = {'macd dif': macd_dif,
+                     'macd dea': macd_dea
+                     }
+        view_function = MplTypesDraw.mpl.route_output(u"line")
+        view_function(stock_dat.index, type_dict, sub_graph)
+
+    @app.route_types(u"kdj")
+    def kdj_graph(self, sub_graph, stock_dat, df_dat=None):  # prepare data
+
+        low_list = stock_dat['low'].rolling(9, min_periods=1).min()
+        high_list = stock_dat['high'].rolling(9, min_periods=1).max()
+        rsv = (stock_dat['close'] - low_list) / (high_list - low_list) * 100
+        stock_dat['K'] = rsv.ewm(com=2, adjust=False).mean()
+        stock_dat['D'] = stock_dat['K'].ewm(com=2, adjust=False).mean()
+        stock_dat['J'] = 3 * stock_dat['K'] - 2 * stock_dat['D']
+
+        type_dict = {'K': stock_dat.K,
+                     'D': stock_dat.D,
+                     'J': stock_dat.J
+                     }
+        view_function = MplTypesDraw.mpl.route_output(u"line")
+        view_function(stock_dat.index, type_dict, sub_graph)
+
+    def __init__(self, **kwargs):
+        MplTypesDraw.__init__(self)
+        self.fig = plt.figure(figsize=kwargs['figsize'], dpi=100, facecolor="white")  # 创建fig对象
+        self.graph_dict = {}
+        self.graph_curr = []
+
+        try:
+            gs = gridspec.GridSpec(kwargs['nrows'], kwargs['ncols'],
+                                   left=kwargs['left'], bottom=kwargs['bottom'], right=kwargs['right'],
+                                   top=kwargs['top'],
+                                   wspace=kwargs['wspace'], hspace=kwargs['hspace'],
+                                   height_ratios=kwargs['height_ratios'])
+        except:
+            raise Exception("para error")
+        else:
+            for i in range(0, kwargs['nrows'], 1):
+                self.graph_dict[kwargs['subplots'][i]] = self.fig.add_subplot(gs[i, :])
+
+    def graph_run(self, stock_data, **kwargs):
+        # 绘制子图
+        self.df_ohlc = stock_data
+        for key in kwargs:
+            self.graph_curr = self.graph_dict[kwargs[key]['graph_name']]
+            for path, val in kwargs[key]['graph_type'].items():
+                view_function = MultiGraphIf.app.route_output(path)
+                view_function(self.df_ohlc, self.graph_curr, val)
+            self.graph_attr(**kwargs[key])
+        plt.show()
+
+    def graph_attr(self, **kwargs):
+
+        if 'title' in kwargs.keys():
+            self.graph_curr.set_title(kwargs['title'])
+
+        if 'legend' in kwargs.keys():
+            self.graph_curr.legend(loc=kwargs['legend'], shadow=True)
+
+        if 'xlabel' in kwargs.keys():
+            self.graph_curr.set_xlabel(kwargs['xlabel'])
+
+        self.graph_curr.set_ylabel(kwargs['ylabel'])
+        self.graph_curr.set_xlim(0, len(self.df_ohlc.index))  # 设置一下x轴的范围
+        self.graph_curr.set_xticks(range(0, len(self.df_ohlc.index), kwargs['xticks']))  # X轴刻度设定 每15天标一个日期
+
+        if 'xticklabels' in kwargs.keys():
+            self.graph_curr.set_xticklabels(
+                [self.df_ohlc.index.strftime(kwargs['xticklabels'])[index] for index in
+                 self.graph_curr.get_xticks()])  # 标签设置为日期
+
+            # X-轴每个ticker标签都向右倾斜45度
+            for label in self.graph_curr.xaxis.get_ticklabels():
+                label.set_rotation(45)
+                label.set_fontsize(10)  # 设置标签字体
+        else:
+            for label in self.graph_curr.xaxis.get_ticklabels():
+                label.set_visible(False)
+
+#-------------------------------------------
+def draw_integrated_interface(table_name, stock_code,start=None,end=None):
+    stock_dat, full_name = basic_set_plot_stock(table_name, stock_code, start, end)
+    layout_dict = {'figsize': (12, 6),
+                   'nrows': 4,
+                   'ncols': 1,
+                   'left': 0.07,
+                   'bottom': 0.15,
+                   'right': 0.99,
+                   'top': 0.96,
+                   'wspace': None,
+                   'hspace': 0,
+                   'height_ratios': [3.5, 1, 1, 1],
+                   'subplots': ['kgraph', 'volgraph', 'kdjgraph', 'macdgraph']}
+
+    subplots_dict = {'graph_fst': {'graph_name': 'kgraph',
+                                   'graph_type': {'ochl': None,
+                                                  'sma': [20, 30, 60, ]
+                                                  },
+                                   'title': f"{full_name}-日K线",
+                                   'ylabel': "价格",
+                                   'xticks': 15,
+                                   'legend': 'best'
+                                   },
+                     'graph_sec': {'graph_name': 'volgraph',
+                                   'graph_type': {'vol': None
+                                                  },
+                                   'ylabel': "成交量",
+                                   'xticks': 15,
+                                   },
+                     'graph_thd': {'graph_name': 'kdjgraph',
+                                   'graph_type': {'kdj': None
+                                                  },
+                                   'ylabel': u"KDJ",
+                                   'xticks': 15,
+                                   'legend': 'best',
+                                   },
+                     'graph_fth': {'graph_name': 'macdgraph',
+                                   'graph_type': {'macd': None
+                                                  },
+                                   'ylabel': "MACD",
+                                   'xlabel': "日期",
+                                   'xticks': 15,
+                                   'legend': 'best',
+                                   'xticklabels': '%Y-%m-%d'  # strftime
+                                   },
+                     }
+
+    draw_stock = MultiGraphIf(**layout_dict)
+    draw_stock.graph_run(stock_dat, **subplots_dict)
