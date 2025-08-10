@@ -28,7 +28,7 @@ def get_data_dir():
     return data_dir
 
 #将各种不同类型的图表函数注册到该容器中，方便调用
-#内部函数
+#内部类
 class DefTypesPool:
     #构造函数
     def __init__(self):
@@ -66,7 +66,7 @@ class MplTypesDraw:
     #使用装饰器，注册到self.routes中
     #折线图
     @mpl.route_types(u"line")
-    def line_plot(self,df_index, df_dat, graph):
+    def line_plot(df_index, df_dat, graph):
         # 绘制line图
         for key, val in df_dat.items():
             graph.plot(np.arange(0, len(val)), val, label=key, lw=1.0)
@@ -74,7 +74,7 @@ class MplTypesDraw:
     #-------------------------------------------
     # 绘制ochl图(k线)
     @mpl.route_types(u"ochl")
-    def ochl_plot(self,df_index, df_dat, graph):
+    def ochl_plot(df_index, df_dat, graph):
         # 方案一
         #mpf.candlestick2_ochl(graph, df_dat['open'], df_dat['close'], df_dat['high'], df_dat['low'], width=0.5,
         #                      colorup='r', colordown='g') # 绘制K线走势
@@ -85,7 +85,7 @@ class MplTypesDraw:
     #-------------------------------------------
     #柱状图（成交量）
     @mpl.route_types(u"bar")
-    def bar_plot(self,df_index, df_dat, graph):
+    def bar_plot(df_index, df_dat, graph):
         #graph.bar(np.arange(0, len(df_index)), df_dat['Volume'], \
         #         color=['g' if df_dat['Open'][x] > df_dat['Close'][x] else 'r' for x in range(0,len(df_index))])
 
@@ -95,7 +95,7 @@ class MplTypesDraw:
     #-------------------------------------------
     # 移动平均线（均线）
     @mpl.route_types(u"hline")
-    def hline_plot(self,df_index, df_dat, graph):
+    def hline_plot(df_index, df_dat, graph):
         #子图上绘制
         for key, val in df_dat.items():
             graph.axhline(val['pos'], c=val['c'], label=key)
@@ -103,7 +103,7 @@ class MplTypesDraw:
     #-------------------------------------------
     #金叉/死叉标注点
     @mpl.route_types(u"annotate")
-    def annotate_plot(self,df_index, df_dat, graph):
+    def annotate_plot(df_index, df_dat, graph):
         #外层循环每种标注类型
         for key, val in df_dat.items():
             #内层循环每个标注点
@@ -122,7 +122,7 @@ class MplTypesDraw:
     #-------------------------------------------
     #黄金分割线(水平线)
     @mpl.route_types(u"hline")
-    def hline_plot(self,df_index, df_dat, graph):
+    def hline_plot(df_index, df_dat, graph):
         for key, val in df_dat.items():
             graph.axhline(val['pos'], c=val['c'], label=key)
 
@@ -741,32 +741,35 @@ class MultiGraphIf(MplTypesDraw):
 
     #k线图
     @app.route_types(u"ochl")
-    def ochl_graph(self, sub_graph, stock_dat, df_dat=None):
-        type_dict = {'Open': stock_dat.open,
-                     'Close': stock_dat.close,
-                     'High': stock_dat.high,
-                     'Low': stock_dat.low
+    def ochl_graph(self,sub_graph, stock_dat, df_dat=None):
+        type_dict = {'open': stock_dat.open,
+                     'close': stock_dat.close,
+                     'high': stock_dat.high,
+                     'low': stock_dat.low
                      }
         view_function = MplTypesDraw.mpl.route_output(u"ochl")
         view_function(stock_dat.index, type_dict, sub_graph)
 
+    #均线
     @app.route_types(u"sma")
-    def sma_graph(self, sub_graph, stock_dat, periods):  # prepare data
+    def sma_graph(self,sub_graph, stock_dat, periods):
         for val in periods:
             type_dict = {'SMA' + str(val): stock_dat.close.rolling(window=val).mean()}
             view_function = MplTypesDraw.mpl.route_output(u"line")
             view_function(stock_dat.index, type_dict, sub_graph)
 
+    #成交量图
     @app.route_types(u"vol")
-    def vol_graph(self, sub_graph, stock_dat, df_dat=None):  # prepare data
+    def vol_graph(self,sub_graph, stock_dat, df_dat=None):
         type_dict = {'bar_red': np.where(stock_dat.open < stock_dat.close, stock_dat.volume, 0),  # 绘制BAR>0 柱状图
                      'bar_green': np.where(stock_dat.open > stock_dat.close, stock_dat.volume, 0)  # 绘制BAR<0 柱状图
                      }
         view_function = MplTypesDraw.mpl.route_output(u"bar")
         view_function(stock_dat.index, type_dict, sub_graph)
 
+    #macd图
     @app.route_types(u"macd")
-    def macd_graph(self, sub_graph, stock_dat, df_dat=None):  # prepare data
+    def macd_graph(self,sub_graph, stock_dat, df_dat=None):
 
         macd_dif = stock_dat['close'].ewm(span=12, adjust=False).mean() - stock_dat['close'].ewm(span=26, adjust=False).mean()
         macd_dea = macd_dif.ewm(span=9, adjust=False).mean()
@@ -784,6 +787,7 @@ class MultiGraphIf(MplTypesDraw):
         view_function = MplTypesDraw.mpl.route_output(u"line")
         view_function(stock_dat.index, type_dict, sub_graph)
 
+    #kdj图
     @app.route_types(u"kdj")
     def kdj_graph(self, sub_graph, stock_dat, df_dat=None):  # prepare data
 
@@ -801,11 +805,13 @@ class MultiGraphIf(MplTypesDraw):
         view_function = MplTypesDraw.mpl.route_output(u"line")
         view_function(stock_dat.index, type_dict, sub_graph)
 
+    #构造函数
     def __init__(self, **kwargs):
         MplTypesDraw.__init__(self)
+        self.graph_curr = None
+        self.df_ohlc = None
         self.fig = plt.figure(figsize=kwargs['figsize'], dpi=100, facecolor="white")  # 创建fig对象
         self.graph_dict = {}
-        self.graph_curr = []
 
         try:
             gs = gridspec.GridSpec(kwargs['nrows'], kwargs['ncols'],
@@ -819,17 +825,7 @@ class MultiGraphIf(MplTypesDraw):
             for i in range(0, kwargs['nrows'], 1):
                 self.graph_dict[kwargs['subplots'][i]] = self.fig.add_subplot(gs[i, :])
 
-    def graph_run(self, stock_data, **kwargs):
-        # 绘制子图
-        self.df_ohlc = stock_data
-        for key in kwargs:
-            self.graph_curr = self.graph_dict[kwargs[key]['graph_name']]
-            for path, val in kwargs[key]['graph_type'].items():
-                view_function = MultiGraphIf.app.route_output(path)
-                view_function(self.df_ohlc, self.graph_curr, val)
-            self.graph_attr(**kwargs[key])
-        plt.show()
-
+    #子函数，用于绘制图表
     def graph_attr(self, **kwargs):
 
         if 'title' in kwargs.keys():
@@ -858,10 +854,23 @@ class MultiGraphIf(MplTypesDraw):
             for label in self.graph_curr.xaxis.get_ticklabels():
                 label.set_visible(False)
 
+    # 绘制子图
+    def graph_run(self,stock_data, **kwargs):
+        self.df_ohlc = stock_data
+        for key in kwargs:
+            self.graph_curr = self.graph_dict[kwargs[key]['graph_name']]
+            for path, val in kwargs[key]['graph_type'].items():
+                print("输出[%s]可视化图表:" % path)
+                view_function = MultiGraphIf.app.route_output(path)
+                view_function(self,self.graph_curr, self.df_ohlc, val)
+            self.graph_attr(**kwargs[key])
+        plt.show()
+
 #-------------------------------------------
+#主要绘图函数
 def draw_integrated_interface(table_name, stock_code,start=None,end=None):
     stock_dat, full_name = basic_set_plot_stock(table_name, stock_code, start, end)
-    layout_dict = {'figsize': (12, 6),
+    layout_dict = {'figsize': (12, 8),
                    'nrows': 4,
                    'ncols': 1,
                    'left': 0.07,
@@ -870,7 +879,7 @@ def draw_integrated_interface(table_name, stock_code,start=None,end=None):
                    'top': 0.96,
                    'wspace': None,
                    'hspace': 0,
-                   'height_ratios': [3.5, 1, 1, 1],
+                   'height_ratios': [4, 2, 2, 2],
                    'subplots': ['kgraph', 'volgraph', 'kdjgraph', 'macdgraph']}
 
     subplots_dict = {'graph_fst': {'graph_name': 'kgraph',
@@ -902,9 +911,9 @@ def draw_integrated_interface(table_name, stock_code,start=None,end=None):
                                    'xlabel': "日期",
                                    'xticks': 15,
                                    'legend': 'best',
-                                   'xticklabels': '%Y-%m-%d'  # strftime
+                                   'xticklabels': '%Y-%m-%d'
                                    },
                      }
 
     draw_stock = MultiGraphIf(**layout_dict)
-    draw_stock.graph_run(stock_dat, **subplots_dict)
+    draw_stock.graph_run(stock_data=stock_dat, **subplots_dict)
