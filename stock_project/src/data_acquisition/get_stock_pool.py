@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 #用于获取/更新当前市场的指数、个股、转债
 #过滤已退市的个股
 #结果存储在stock_pool.json

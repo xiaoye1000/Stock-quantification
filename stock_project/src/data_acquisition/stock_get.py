@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 #用于获取股票行情数据的函数
 
 import pandas as pd
-import datetime
 import tushare as ts
 import baostock as bs
 from functools import wraps

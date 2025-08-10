@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 #用于股票的数据库存储相关的函数
 
 import pandas as pd
