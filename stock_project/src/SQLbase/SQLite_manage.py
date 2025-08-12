@@ -14,6 +14,9 @@ from ..data_acquisition.stock_get import bs_daily_original_stock
 #数据库
 import sqlite3
 
+#类型整合
+from typing import Union
+
 #获取数据路径
 #内置函数，无需使用
 def get_data_dir():
@@ -125,9 +128,9 @@ def stock_to_sql_for(table_name,start,end):
             time.sleep(0.2)
             data.to_sql(table_name,con_name,index=False,if_exists='append')#存到数据库
             print("right code is %s"%code)
-        except:
+        except Exception as e:
             print("error code is %s"%code)
-            print("错误，检查是否已有数据或程序错误")
+            print(f"错误，检查是否已有数据或程序错误:{str(e)}")
     
     bs.logout()
     
@@ -135,13 +138,13 @@ def stock_to_sql_for(table_name,start,end):
     print("导入数据库完成")
     con_name.close()
     print(f"数据已保存到: {db_path}")
-
+#----------------------------------------------------------
 #删除表函数
 #table_name自选池名称
-def sql_drop_table(table_name):
+def _drop_table(db_file: str, table_name: str) -> str:
     # 获取数据库路径
     data_dir = get_data_dir()
-    db_path = os.path.join(data_dir, 'stock-data.db')
+    db_path = os.path.join(data_dir, db_file)
     
     conn = None
     
@@ -157,7 +160,7 @@ def sql_drop_table(table_name):
         #删除整个表
         c.execute(f"drop table {table_name}")
         conn.commit()
-        return f"表 '{table_name}' 已成功删除"
+        return f"表 '{table_name}' 已从 [{db_file}] 中成功删除"
     
     except sqlite3.Error as e:
         return f"删除表时出错: {str(e)}"
@@ -165,12 +168,23 @@ def sql_drop_table(table_name):
         if conn:
             conn.close()
 
+# 交易数据库专用接口
+def drop_trade_table(table_name: str) -> str:
+    """专用于trade-data数据库的删除函数"""
+    return _drop_table("trade-data.db", table_name)
+
+# 原股票数据库接口
+def drop_stock_table(table_name: str) -> str:
+    """专用于stock-data数据库的删除函数"""
+    return _drop_table("stock-data.db", table_name)
+
+#----------------------------------------------------------
 #查询表所有的值的函数
 #table_name自选池名称
-def sql_query_table(table_name):
+def _query_table(db_file: str, table_name: str) -> Union[pd.DataFrame, str]:
     # 获取数据库路径
     data_dir = get_data_dir()
-    db_path = os.path.join(data_dir, 'stock-data.db')
+    db_path = os.path.join(data_dir, db_file)
     
     conn = None
     
@@ -191,3 +205,13 @@ def sql_query_table(table_name):
     finally:
         if conn:
             conn.close()
+
+# 交易数据库查询
+def query_trade_table(table_name: str) -> Union[pd.DataFrame, str]:
+    """专用函数：查询trade-data.db中的表数据"""
+    return _query_table("trade-data.db", table_name)
+
+# 股票数据库查询
+def query_stock_table(table_name: str) -> Union[pd.DataFrame, str]:
+    """专用函数：查询stock-data.db中的表数据"""
+    return _query_table("stock-data.db", table_name)

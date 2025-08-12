@@ -2,12 +2,10 @@ import pandas as pd
 import os
 import glob
 
-from datetime import datetime
-
 #数据库
 import sqlite3
 from ..SQLbase.SQLite_manage import (
-    get_data_dir
+    get_data_dir,
 )
 
 #-----------------------------------------------------------------------
@@ -51,6 +49,27 @@ def get_xls_dir():
     os.makedirs(data_dir, exist_ok=True)  # 确保目录存在
     return os.path.normpath(data_dir)
 
+# 证券代码格式化函数
+#内置函数，无需使用
+def format_stock_code(code)-> str:
+    #将证券代码统一为sh./sz.前缀的6位标准格式
+    code_str = str(code) if not isinstance(code, str) else code
+
+    #清理特殊字符
+    clean_code = ''.join(char for char in code_str if char.isdigit())
+
+    # 补全缺失的零
+    padded_code = clean_code.zfill(6)
+
+    # 添加市场前缀
+    if padded_code.startswith(('60', '68', '90', '58')):  # 沪市股票/科创板/B股/基金ETF
+        return f"sh.{padded_code}"
+    elif padded_code.startswith(('00', '30', '20', '159', '399')):  # 深市主板/创业板/B股/基金ETF
+        return f"sz.{padded_code}"
+    else:
+        print(f"警告: 无法识别的证券代码格式: {code_str} -> {padded_code}")
+        return padded_code  # 无法识别时返回原始6位数字
+
 #尝试多种方式读取Excel文件
 #内置函数
 def try_read_excel(file_path):
@@ -70,7 +89,8 @@ def try_read_excel(file_path):
             try:
                 # CSV可能用逗号、制表符或分号分隔
                 return pd.read_csv(file_path, encoding=encoding, sep=None, engine='python')
-            except:
+            except Exception as e:
+                print(f"错误: {str(e)}")
                 continue
     except Exception as e:
         print(f"CSV方法失败: {str(e)},正在尝试其他方法")
@@ -84,7 +104,8 @@ def try_read_excel(file_path):
             try:
                 text_content = header.decode('gbk')
                 print(f"可能包含文本内容: {text_content}")
-            except:
+            except Exception as e:
+                print(f"错误: {str(e)}")
                 pass
 
             # 尝试更多格式的可能性
@@ -167,11 +188,17 @@ def process_xls_files(table_name):
                 try:
                     date_str = str(int(date_val))
                     return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                except:
+                except Exception as er:
+                    print(f"日期重构失败: {str(er)}")
                     return date_val
 
             if 'trade_date' in df.columns:
                 df['trade_date'] = df['trade_date'].apply(format_date)
+
+            if 'code' in df.columns:
+                df['code'] = df['code'].apply(format_stock_code)
+            else:
+                print("警告: 数据中缺少证券代码列")
 
             # 4. 选择需要的列
             req_cols = ['trade_date', 'code', 'code_name',
