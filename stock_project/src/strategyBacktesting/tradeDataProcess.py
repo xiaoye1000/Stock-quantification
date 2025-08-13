@@ -41,6 +41,21 @@ def create_trade_db(table_name, db_path, keep_open=False):
         return None
 
 #-----------------------------------------------------------------------
+# 提取股票代码（保留市场前缀，去掉点）
+def format_stock_code_for_tablename(formatted_code)-> str:
+    """将格式化后的股票代码转换为表名格式（sh+6位数字或sz+6位数字）"""
+    if '.' in formatted_code:
+        prefix, suffix = formatted_code.split('.')
+        return prefix + suffix
+    else:
+        # 如果没有点，尝试处理（如无法识别市场前缀的纯数字）
+        if formatted_code.startswith('6'):
+            return 'sh' + formatted_code
+        elif formatted_code.startswith('0') or formatted_code.startswith('3'):
+            return 'sz' + formatted_code
+        else:
+            return formatted_code  # 返回原始值
+
 #获取xls路径
 #内置函数，无需使用
 def get_xls_dir():
@@ -137,10 +152,7 @@ def process_xls_files(table_name):
         conn.close()
         return
 
-    dataCount = 0
     for file_path in xls_files:
-        #计数
-        dataCount=dataCount+1
 
         filename = os.path.basename(file_path)
         print(f"\n处理文件: {filename}")
@@ -206,8 +218,10 @@ def process_xls_files(table_name):
             df = df[[col for col in req_cols if col in df.columns]]
 
             # 5. 插入数据库
+            #获取代码
+            trade_code=format_stock_code_for_tablename(str(df['code'][0]))
             #增加编号
-            final_table_name = f"{table_name}{dataCount}"
+            final_table_name = f"{table_name}_{trade_code}"
 
             df.to_sql(final_table_name, conn, if_exists='append', index=False)
             print(f"成功插入到数据库,名称为: {final_table_name}")

@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# coding: utf-8
+#股票数据可视化相关的函数
 
 import pandas as pd
 import numpy as np
