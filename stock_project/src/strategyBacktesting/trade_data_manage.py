@@ -441,7 +441,6 @@ def draw_integrated_interface(table_name, trade_table,start=None, end=None):
 
     # 调试输出持仓数据
     print(f"持仓历史数据量: {len(full_trade_history)}条")
-    print(f"持仓数据前5行:\n{full_trade_history.head()}")
 
     # 4. 确保索引对齐
     if not stock_dat.index.equals(full_trade_history.index):
