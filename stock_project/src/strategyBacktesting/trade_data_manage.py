@@ -311,19 +311,38 @@ class TradePlot(MplTypesDraw):
     # 收益曲线
     @app.route_types("profit_curve")
     def profit_curve(self, sub_graph, profit_data):
+        """绘制收益曲线"""
+        print(f"收益曲线数据量: {len(profit_data)}条")  # 调试输出
+
+        # 确保数据有效
+        if profit_data.empty:
+            print("警告: 收益数据为空")
+            return
+
+        # 确保有realized_profit列
+        if 'realized_profit' not in profit_data.columns:
+            print("警告: 收益数据中缺少realized_profit列")
+            print(f"可用列: {profit_data.columns.tolist()}")
+            return
+
+        # 获取位置索引（整数值）
+        positions = range(len(profit_data))
+        profits = profit_data['realized_profit'].values
+
+        print(f"收益数据示例: {profits[:5]}")  # 调试输出
 
         # 绘制收益曲线
-        dates = profit_data.index
-        profits = profit_data['realized_profit']
-
-        sub_graph.plot(dates, profits, 'b-', linewidth=2, label='累计收益')
-        sub_graph.fill_between(dates, profits, 0, where=(profits >= 0),
+        sub_graph.plot(positions, profits, 'b-', linewidth=2, label='累计收益')
+        sub_graph.fill_between(positions, profits, 0, where=(profits >= 0),
                                facecolor='green', alpha=0.3, interpolate=True)
-        sub_graph.fill_between(dates, profits, 0, where=(profits < 0),
+        sub_graph.fill_between(positions, profits, 0, where=(profits < 0),
                                facecolor='red', alpha=0.3, interpolate=True)
 
         # 添加0水平线
         sub_graph.axhline(y=0, color='grey', linestyle='--')
+
+        # 添加网格
+        sub_graph.grid(True, linestyle='--', alpha=0.5)
 
     #构造函数
     def __init__(self, **kwargs):
@@ -404,10 +423,14 @@ class TradePlot(MplTypesDraw):
 #-------------------------------------------
 #主要绘图函数
 def draw_integrated_interface(table_name, trade_table,start=None, end=None):
-    trade_history,stock_code=get_trade_data(trade_table)
 
     trade_signals = extract_signals(trade_table)
+    print(f"交易信号量: {len(trade_signals)}条")
+
+    trade_history, stock_code = get_trade_data(trade_table)
     stock_dat, full_name = basic_set_plot_stock(table_name, stock_code, start, end)
+    print(f"股票数据量: {len(stock_dat)}条")
+    stock_dat.index = pd.to_datetime(stock_dat.index)
 
     # 创建持仓管理对象
     tradecode = StockPosition(trade_table)
@@ -415,6 +438,19 @@ def draw_integrated_interface(table_name, trade_table,start=None, end=None):
 
     # 获取对齐后的完整持仓历史
     full_trade_history = tradecode.get_full_history(stock_dat)
+
+    # 调试输出持仓数据
+    print(f"持仓历史数据量: {len(full_trade_history)}条")
+    print(f"持仓数据前5行:\n{full_trade_history.head()}")
+
+    # 4. 确保索引对齐
+    if not stock_dat.index.equals(full_trade_history.index):
+        print("警告: 股票数据和持仓历史索引不一致, 正在对齐...")
+        common_index = stock_dat.index.intersection(full_trade_history.index)
+        stock_dat = stock_dat.loc[common_index]
+        full_trade_history = full_trade_history.loc[common_index]
+        print(f"对齐后股票数据量: {len(stock_dat)}条")
+        print(f"对齐后持仓历史量: {len(full_trade_history)}条")
 
     layout_dict = {'figsize': (12, 8),
                    'nrows': 2,
