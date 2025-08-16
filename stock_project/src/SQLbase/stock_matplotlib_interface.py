@@ -11,7 +11,7 @@ import sqlite3
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-#k线
+#k线mpf
 import mpl_finance as mpf
 
 #TA-Lib
@@ -64,7 +64,7 @@ class MplTypesDraw:
     #-------------------------------------------
     #使用装饰器，注册到self.routes中
     #折线图
-    @mpl.route_types(u"line")
+    @mpl.route_types("line")
     def line_plot(df_index, df_dat, graph):
         # 绘制line图
         for key, val in df_dat.items():
@@ -72,7 +72,7 @@ class MplTypesDraw:
     
     #-------------------------------------------
     # 绘制ochl图(k线)
-    @mpl.route_types(u"ochl")
+    @mpl.route_types("ochl")
     def ochl_plot(df_index, df_dat, graph):
         # 方案一
         #mpf.candlestick2_ochl(graph, df_dat['open'], df_dat['close'], df_dat['high'], df_dat['low'], width=0.5,
@@ -83,7 +83,7 @@ class MplTypesDraw:
     
     #-------------------------------------------
     #柱状图（成交量）
-    @mpl.route_types(u"bar")
+    @mpl.route_types("bar")
     def bar_plot(df_index, df_dat, graph):
         #graph.bar(np.arange(0, len(df_index)), df_dat['Volume'], \
         #         color=['g' if df_dat['Open'][x] > df_dat['Close'][x] else 'r' for x in range(0,len(df_index))])
@@ -93,7 +93,7 @@ class MplTypesDraw:
         
     #-------------------------------------------
     # 移动平均线（均线）
-    @mpl.route_types(u"hline")
+    @mpl.route_types("hline")
     def hline_plot(df_index, df_dat, graph):
         #子图上绘制
         for key, val in df_dat.items():
@@ -101,7 +101,7 @@ class MplTypesDraw:
      
     #-------------------------------------------
     #金叉/死叉标注点
-    @mpl.route_types(u"annotate")
+    @mpl.route_types("annotate")
     def annotate_plot(df_index, df_dat, graph):
         #外层循环每种标注类型
         for key, val in df_dat.items():
@@ -120,10 +120,13 @@ class MplTypesDraw:
     
     #-------------------------------------------
     #黄金分割线(水平线)
-    @mpl.route_types(u"hline")
+    @mpl.route_types("hline")
     def hline_plot(df_index, df_dat, graph):
         for key, val in df_dat.items():
             graph.axhline(val['pos'], c=val['c'], label=key)
+
+    # -------------------------------------------
+
 
 #绘制完整的图表
 class MplVisualIf(MplTypesDraw):
@@ -807,9 +810,12 @@ class MultiGraphIf(MplTypesDraw):
     #构造函数
     def __init__(self, **kwargs):
         MplTypesDraw.__init__(self)
+        #图表参数
         self.graph_curr = None
+        #数据
         self.df_ohlc = None
-        self.fig = plt.figure(figsize=kwargs['figsize'], dpi=100, facecolor="white")  # 创建fig对象
+        # 创建fig对象
+        self.fig = plt.figure(figsize=kwargs['figsize'], dpi=100, facecolor="white")
         self.graph_dict = {}
 
         try:
