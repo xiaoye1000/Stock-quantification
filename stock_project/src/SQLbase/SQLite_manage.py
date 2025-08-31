@@ -29,13 +29,17 @@ def get_data_dir():
 #需要先运行生成股票池get_stock_pool，确保有stock_pool.json获取所有股票/指数
 #内置函数，无需使用
 def json_to_str():
-    # 获取数据目录
-    data_dir = get_data_dir()
-    json_path = os.path.join(data_dir, 'stock_pool.json') 
+    try:
+        # 获取数据目录
+        data_dir = get_data_dir()
+        json_path = os.path.join(data_dir, 'stock_pool.json')
     
-    with open(json_path,"r",encoding='utf-8') as load_f:
-        stock_index = json.load(load_f)
-    return stock_index
+        with open(json_path,"r",encoding='utf-8') as load_f:
+            stock_index = json.load(load_f)
+        return stock_index
+    except Exception as e:
+        print(f"出错: {e}")
+        return None
 
 #连接/创建数据库
 #数据库文件固定存储在stock-data.db中

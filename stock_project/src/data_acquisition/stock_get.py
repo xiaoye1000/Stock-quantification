@@ -3,6 +3,10 @@
 import pandas as pd
 import tushare as ts
 import baostock as bs
+import os
+
+#json文件
+import json
 
 '''
 基于Tushare Pro的股票日线行情数据获取
@@ -15,9 +19,43 @@ start_val,end_val:格式为YYYYMMDD形式的日期
 注意：使用Tushare需要注册并自带API，并且需要积分解锁功能，建议使用Baostock
 '''
 
+# 获取数据路径
+# 内置函数，无需使用
+def get_data_dir():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, '../../data/config')
+    os.makedirs(data_dir, exist_ok=True)  # 确保目录存在
+    return data_dir
+
+
+# 读取json文件
+# 内置函数，无需使用
+def json_to_str():
+    try:
+        # 获取数据目录
+        data_dir = get_data_dir()
+        json_path = os.path.join(data_dir, 'config.json')
+
+        with open(json_path, "r", encoding='utf-8') as load_f:
+            config_data = json.load(load_f)
+        return config_data
+    except Exception as e:
+        print(f"出错: {e}")
+        return None
+
+
 def pro_daily_stock(code_val,start_val,end_val):
     #Token接口API值
-    token = ''
+    config_data = json_to_str()
+    if not config_data:
+        print("无法获取配置数据，请检查config.json文件")
+        return None
+
+    token = config_data.get("tushare_api", "")
+    if not token:
+        print("未在config.json中找到tushare_api配置")
+        return None
+
     pro = ts.pro_api(token)
     
     #Tushare获取股票信息
