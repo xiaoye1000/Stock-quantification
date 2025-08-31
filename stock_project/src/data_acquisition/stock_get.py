@@ -3,24 +3,6 @@
 import pandas as pd
 import tushare as ts
 import baostock as bs
-from functools import wraps
-
-#异常处理
-def handle_api_errors(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except ts.exception.RequestError as e:
-            print(f"Tushare API错误: {str(e)}")
-        except bs.common.exception.BaostockException as e:
-            print(f"Baostock 错误: {str(e)}")
-        except ValueError as e:
-            print(f"参数错误: {str(e)}")
-        except Exception as e:
-            print(f"处理股票数据时发生错误: {str(e)}")
-        return None
-    return wrapper
 
 '''
 基于Tushare Pro的股票日线行情数据获取
@@ -32,7 +14,6 @@ start_val,end_val:格式为YYYYMMDD形式的日期
 
 注意：使用Tushare需要注册并自带API，并且需要积分解锁功能，建议使用Baostock
 '''
-@handle_api_errors
 
 def pro_daily_stock(code_val,start_val,end_val):
     #Token接口API值
@@ -70,7 +51,6 @@ start_val,end_val:格式为YYYY-MM-DD形式的日期
 adjust_val: 2:默认前复权 1:后复权 3:不复权
 already_login：是否需要登入，默认需要，在外部代码登入可以减少运行时间
 '''
-@handle_api_errors
 
 def bs_daily_stock(code_val,start_val,end_val,adjust_val='2',already_login=False):
     #### 登陆系统 ####
@@ -142,7 +122,6 @@ start_val,end_val:格式为YYYY-MM-DD形式的日期
 adjust_val: 2:默认前复权 1:后复权 3:不复权
 already_login：是否需要登入，默认需要，在外部代码登入可以减少运行时间
 '''
-@handle_api_errors
 
 def bs_daily_original_stock(code_val,start_val,end_val,adjust_val='2',already_login=False):
     #### 登陆系统 ####
