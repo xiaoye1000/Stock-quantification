@@ -9,7 +9,12 @@ from ..data_acquisition.stock_get import (
     json_to_str
 )
 
-def crawler_ths():
+'''
+可以获取config中的预设请求头和cookies，也可以在函数输入时输入cookies
+'''
+
+#获取配置数据
+def get_headers_cookies():
     #配置数据
     config_data = json_to_str()
     if not config_data:
@@ -23,6 +28,15 @@ def crawler_ths():
     #cookies
     cookies = config_data.get("cookies", "")
     #print(cookies)
+    return headers, cookies
+
+#同花顺网站爬取
+def crawler_ths(cookies_get = None):
+    if cookies_get is None:
+        headers, cookies = get_headers_cookies()
+    else:
+        headers, cookies = get_headers_cookies()
+        cookies = cookies_get
 
     # 链接(同花顺）
     for page in range(1,272):
@@ -66,3 +80,45 @@ def crawler_ths():
             # 存入代码占位
 
             print(dit)
+    return None
+
+
+#雪球网站爬取
+def crawler_xq(cookies_get = None):
+    if cookies_get is None:
+        headers, cookies = get_headers_cookies()
+    else:
+        headers, cookies = get_headers_cookies()
+        cookies = cookies_get
+
+    for page in range(1, 167):
+
+        url = f'https://stock.xueqiu.com/v5/stock/screener/quote/list.json?page={page}&size=30&order=desc&order_by=percent&market=CN&type=sh_s'
+
+        # 发送请求
+        response = requests.get(url=url, headers=headers, cookies=cookies)
+
+        json_data = response.json()
+        for index in json_data['data']['list']:
+            #print(index)
+            dit = {
+                '代码':index['symbol'],
+                '名称':index['name'],
+                '现价':index['current'],
+                '涨跌幅':index['percent'],
+                '涨跌':index['chg'],
+                '年初至今':index['current_year_percent'],
+                '成交量':index['volume'],
+                '成交额':index['amount'],
+                '换手率':index['turnover_rate'],
+                '市盈率':index['pe_ttm'],
+                '股息率':index['dividend_yield'],
+                '市值':index['market_capital']
+            }
+
+            #存入代码占位
+
+            print(dit)
+    return None
+
+

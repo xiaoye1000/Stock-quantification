@@ -1,13 +1,16 @@
 #用于获取股票行情数据的函数
 
 import pandas as pd
+import os
+
+#接口
 import tushare as ts
 import baostock as bs
-import os
 
 #json文件
 import json
 
+#----------------------------------------------------------------------------
 '''
 基于Tushare Pro的股票日线行情数据获取
 已对输出结果进行规整化，若token或API不可用，请使用其他函数
@@ -16,7 +19,7 @@ import json
 code_val:股票代码后加.SH（上证股票）或.SZ（深证股票）
 start_val,end_val:格式为YYYYMMDD形式的日期
 
-注意：使用Tushare需要注册并自带API，并且需要积分解锁功能，建议使用Baostock
+注意：使用Tushare需要注册并自带API，并且需要积分解锁功能，可以使用其他接口
 '''
 
 # 获取数据路径
@@ -30,7 +33,7 @@ def get_data_dir():
 
 # 读取json文件
 # 内置函数，无需使用
-def json_to_str():
+def json_to_str_config():
     try:
         # 获取数据目录
         data_dir = get_data_dir()
@@ -44,9 +47,9 @@ def json_to_str():
         return None
 
 
-def pro_daily_stock(code_val,start_val,end_val):
+def tushare_daily_stock(code_val,start_val,end_val):
     #Token接口API值
-    config_data = json_to_str()
+    config_data = json_to_str_config()
     if not config_data:
         print("无法获取配置数据，请检查config.json文件")
         return None
@@ -77,6 +80,7 @@ def pro_daily_stock(code_val,start_val,end_val):
     
     return df_recon
 
+#----------------------------------------------------------------------------
 '''
 基于Baostock的股票日线行情数据获取
 
@@ -129,7 +133,7 @@ def bs_daily_stock(code_val,start_val,end_val,adjust_val='2',already_login=False
         bs.logout()
     return df_recon
 
-
+#----------------------------------------------------------------------------
 '''
 基于Baostock的股票日线行情数据获取2
 
