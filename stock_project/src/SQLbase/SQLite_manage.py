@@ -219,3 +219,53 @@ def query_trade_table(table_name: str) -> Union[pd.DataFrame, str]:
 def query_stock_table(table_name: str) -> Union[pd.DataFrame, str]:
     """专用函数：查询stock-data.db中的表数据"""
     return _query_table("stock-data.db", table_name)
+
+#----------------------------------------------------------
+#查询表某一个股票的函数
+def _query_one_stock_table(db_file: str, table_name: str, stock_code: str) -> Union[pd.DataFrame, str]:
+    # 获取数据库路径
+    data_dir = get_data_dir()
+    db_path = os.path.join(data_dir, db_file)
+
+    conn = None
+
+    try:
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+
+        # 检查表是否存在
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        if not c.fetchone():
+            return f"表 '{table_name}' 不存在"
+
+        # 检查code列是否存在
+        c.execute(f"PRAGMA table_info({table_name})")
+        columns = [col[1] for col in c.fetchall()]
+        if 'code' not in columns:
+            return f"表 '{table_name}' 中不存在 'code' 列"
+
+        # 使用参数化查询防止SQL注入
+        query = f"SELECT * FROM {table_name} WHERE code = ?"
+        df = pd.read_sql_query(query, conn,params=[stock_code])
+
+        if df.empty:
+            return f"表 '{table_name}' 中未找到股票代码 '{stock_code}' 的记录"
+
+        return df
+    except sqlite3.Error as e:
+        return f"查询股票数据时出错: {str(e)}"
+    finally:
+        if conn:
+            conn.close()
+
+
+# 交易数据库查询特定股票
+def query_one_trade_table(table_name: str, stock_code: str) -> Union[pd.DataFrame, str]:
+    """专用函数：查询trade-data.db中特定股票的数据"""
+    return _query_one_stock_table("trade-data.db", table_name, stock_code)
+
+
+# 股票数据库查询特定股票
+def query_one_stock_table(table_name: str, stock_code: str) -> Union[pd.DataFrame, str]:
+    """专用函数：查询stock-data.db中特定股票的数据"""
+    return _query_one_stock_table("stock-data.db", table_name, stock_code)

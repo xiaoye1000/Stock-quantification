@@ -4,7 +4,7 @@ mpl-finance==0.10.1
 TA-Lib==0.6.4
 pandas-datareader==0.10.0
 matplotlib==3.7.5
-tushare==1.14.21
+tushare==1.4.21
 baostock==0.8.9
 statsmodels==0.14.1
 openpyxl==3.1.5
@@ -12,3 +12,4 @@ xlrd==2.0.2
 requests==2.32.4
 parsel==1.9.1
 pytdx==1.72
+chinese_calendar==1.10.0
