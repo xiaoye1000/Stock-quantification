@@ -38,13 +38,15 @@
     加权条件2：
         当日/近日该板块影响分
 """
+#日期
+from datetime import datetime, timedelta
 
 #获取股票池
 from ..src.SQLbase.SQLite_manage import (
-    load_stock_mapping,
-    query_one_stock_table
+    load_stock_mapping
 )
 
+from ..src.data_acquisition.stock_get import bs_query_ipodate
 
 
 class StockFilter:
@@ -58,12 +60,44 @@ class StockFilter:
         # 存储股票表数据
         self.code_name_map = None  # 初始化为None，稍后可以赋值
 
-#获取全名称代码
+#获取全名称代码，在初筛使用
 def get_all_stock_code():
     code_name_map = load_stock_mapping()
     return code_name_map
 
-def apply_stock_filters(code_name_map):
+#获取上市日期
+def get_recent_ipo_stocks(stock_basic_df, months=4):
+    """
+    预处理并对比所有上市日期与当前日期，返回上市时间在指定月数以内的股票代码列表
+    """
+    # 获取当前日期
+    current_date = datetime.now()
+    # 计算阈值日期
+    threshold_date = current_date - timedelta(days = 30*months)  # 简单按30天每月计算
+
+    recent_ipo_stocks = []
+
+    # 创建一个股票代码到上市日期的映射字典
+    for _, row in stock_basic_df.iterrows():
+        code = row['code']
+        ipo_date_str = row['ipoDate']
+
+        try:
+            # 将字符串转换为datetime对象
+            ipo_date = datetime.strptime(ipo_date_str, "%Y-%m-%d")
+
+            # 判断是否在指定月数内
+            if ipo_date > threshold_date:
+                recent_ipo_stocks.append(code)
+        except (ValueError, TypeError):
+            # 日期格式错误或为空，跳过
+            continue
+
+    # 查找指定股票的上市日期
+    return recent_ipo_stocks
+
+#初筛，无需二次判断
+def apply_stock_filters_first(code_name_map):
     """
     应用股票筛选条件
     :param code_name_map: 股票
@@ -136,7 +170,6 @@ def apply_stock_filters(code_name_map):
 
         # 遍历字典，筛选ST股票（名称中包含"ST"）
         for stock_code, stock_name in code_name_map.items():
-            # 判断是否为ST股票（名称中包含"ST"）
             if "ST" in stock_name:
                 to_remove.append(stock_code)
 
@@ -147,9 +180,22 @@ def apply_stock_filters(code_name_map):
 
     # ------------------------------------------------------------------
     if filter_conditions.get("exclude_new_stock", True):
+        # 创建待删除的键列表
+        to_remove = []
+
+        stock_basic_df = bs_query_ipodate()
+
+        # 获取上市4个月以内的股票代码列表
+        recent_ipo_stocks = get_recent_ipo_stocks(stock_basic_df, months=4)
+
+        # 遍历股票代码映射，检查是否在新股列表中
         for stock_code, stock_name in code_name_map.items():
-            table_name = 'STOCK000001'
-            code_data = query_one_stock_table(table_name,stock_code)
-            last_date_str = code_data['date'].iloc[0]
+            if stock_code in recent_ipo_stocks:
+                to_remove.append(stock_code)
+
+        # 从原字典中删除新股
+        for stock_code in to_remove:
+            if stock_code in code_name_map:
+                del code_name_map[stock_code]
 
     return code_name_map

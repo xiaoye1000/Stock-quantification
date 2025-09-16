@@ -187,3 +187,25 @@ def bs_daily_original_stock(code_val,start_val,end_val,adjust_val='2',already_lo
     if not already_login:
         bs.logout()
     return result
+
+#----------------------------------------------------------------------------
+'''
+基于baostock的查询上市日期的函数
+返回所有的上市日期
+'''
+def bs_query_ipodate():
+    # 登陆系统
+    bs.login()
+
+    rs = bs.query_stock_basic()
+
+    data_list = []
+    while (rs.error_code == '0') & rs.next():
+        # 获取一条记录，将记录合并在一起
+        data_list.append(rs.get_row_data())
+
+    result = pd.DataFrame(data_list, columns=rs.fields)
+
+    bs.logout()
+
+    return result
