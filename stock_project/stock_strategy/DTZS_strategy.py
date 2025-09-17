@@ -63,6 +63,10 @@ from ..technocal_indicators.get_data_for_indicators import get_59days_data
 #获取实时数据（pytdx）
 from ..src.data_acquisition.stock_get_tdx import pytdx_nowdata_stock
 
+from ..technocal_indicators.get_bullish_bearish import (
+    get_bullish_cover_bearish
+)
+
 class StockFilter:
     """
     股票筛选器类，用于存储股票表数据
@@ -214,14 +218,18 @@ def apply_stock_filters_first(code_name_map):
                 del code_name_map[stock_code]
 
     stock_59days_close_data , kline_10days_data = get_59days_data(code_name_map)
-
-    return code_name_map, stock_59days_close_data , kline_10days_data
+    stock_require_data = {
+        'close_data': stock_59days_close_data,  # 59天收盘价数据
+        'kline_data': kline_10days_data  # 10天K线数据
+    }
+    return code_name_map, stock_require_data
 
 
 #获取当前实时价格，再处理
 def get_now_price(code_name_map):
     data = pytdx_nowdata_stock()
-    result = {}
+    now_price = {}
+    open_prices = {}
     for index, row in data.iterrows():
         # 确定市场前缀
         market_prefix = 'sh.' if row['market'] == 1 else 'sz.'
@@ -230,9 +238,10 @@ def get_now_price(code_name_map):
 
         # 只处理在code_name_map中存在的股票代码
         if full_code in code_name_map:
-            result[full_code] = row['price']
+            now_price[full_code] = row['price']
+            open_prices[full_code] = row['open']
 
-    return result
+    return now_price,open_prices
 
 def get_60days_close_data(stock_59days_close_data,now_price):
     result = {}
@@ -254,14 +263,17 @@ def get_60days_close_data(stock_59days_close_data,now_price):
 
 
 # 二筛，实时判断
-def apply_stock_filters_second(code_name_map,stock_59days_close_data,kline_10days_data):
+def apply_stock_filters_second(code_name_map,stock_require_data):
     filter_conditions = {
         "sma_bullish_alignment": True,  # 均线多头排列
         "price_greater_sma": True, #当前股价高于5均
         "bullish_cover_bearish": True #当前股价出现阳包阴
     }
 
-    now_price = get_now_price(code_name_map)
+    stock_59days_close_data = stock_require_data['close_data']
+    kline_10days_data = stock_require_data['kline_data']
+
+    now_price , open_prices = get_now_price(code_name_map)
     stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
 
     # 创建字典来存储每只股票的均线值
@@ -320,7 +332,6 @@ def apply_stock_filters_second(code_name_map,stock_59days_close_data,kline_10day
     # ------------------------------------------------------------------
     # 当前股价出现阳包阴
     if filter_conditions.get("bullish_cover_bearish", True):
-        # 这里将实现阳包阴形态的筛选逻辑
-        pass
+        code_name_map = get_bullish_cover_bearish(code_name_map, kline_10days_data, now_price, open_prices)
 
     return code_name_map

@@ -30,25 +30,16 @@ def get_59days_data(code_name_map):
         for i in range(len(last_10_data)):
             current_day = last_10_data.iloc[i]
 
-            # 处理可能的空值情况
-            pct_chg_str = current_day['pctChg']
+            # 使用开盘价和收盘价判断K线状态
+            open_price = current_day['open']
+            close_price = current_day['close']
 
-            # 如果pctChg是空字符串，视为平盘（0%）
-            if pct_chg_str == '':
-                pct_chg = 0.0
+            if close_price > open_price:
+                status = 1  # 阳线（收盘价高于开盘价）
+            elif close_price < open_price:
+                status = -1  # 阴线（收盘价低于开盘价）
             else:
-                try:
-                    pct_chg = float(pct_chg_str)
-                except ValueError:
-                    # 如果转换失败，也视为平盘
-                    pct_chg = 0.0
-
-            if pct_chg > 0:
-                status = 1  # 阳线
-            elif pct_chg < 0:
-                status = -1  # 阴线
-            else:
-                status = 0  # 平线
+                status = 0  # 平线（收盘价等于开盘价）
 
             kline_status_list.append([
                 current_day['high'],

@@ -112,7 +112,7 @@ def pytdx_nowdata_stock():
             if result:
                 df_batch = api.to_df(result)
                 all_data.append(df_batch)
-                print(f"已获取批次 {i // batch_size + 1} 数据，包含 {len(df_batch)} 条记录")
+                #print(f"已获取批次 {i // batch_size + 1} 数据，包含 {len(df_batch)} 条记录")
             else:
                 print(f"批次 {i // batch_size + 1} 返回空数据")
         except Exception as e:
