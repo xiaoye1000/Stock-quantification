@@ -2,8 +2,14 @@
 
 """
 选股策略：
-条件1：
-    剔除st股票
+筛选1（初筛）：
+    条件1：
+        若权限不足，剔除创业板，科创板，新股
+    条件2：
+        剔除st股票
+    条件3：
+        剔除上市4个月内的新股
+
 条件1：
     均线多头排列，5均在10均之上，10均在20均之上，等等
 条件2：
@@ -11,8 +17,7 @@
 条件3：
     股价出现阳包阴，缓冲30分钟
     即当前股价出现阳线，当前价格超过了上一根阴线的高点
-条件4：
-    （可选择条件）权限不足，剔除创业板，科创板，新股
+
 条件5：
     各类技术指标加分
 
@@ -46,8 +51,17 @@ from ..src.SQLbase.SQLite_manage import (
     load_stock_mapping
 )
 
+#获取股票基本数据
 from ..src.data_acquisition.stock_get import bs_query_ipodate
 
+#获取均线
+from ..technocal_indicators.get_sma import (
+    calculate_sma
+)
+from ..technocal_indicators.get_data_for_indicators import get_59days_data
+
+#获取实时数据（pytdx）
+from ..src.data_acquisition.stock_get_tdx import pytdx_nowdata_stock
 
 class StockFilter:
     """
@@ -179,6 +193,7 @@ def apply_stock_filters_first(code_name_map):
                 del code_name_map[stock_code]
 
     # ------------------------------------------------------------------
+    #剔除新股
     if filter_conditions.get("exclude_new_stock", True):
         # 创建待删除的键列表
         to_remove = []
@@ -197,5 +212,115 @@ def apply_stock_filters_first(code_name_map):
         for stock_code in to_remove:
             if stock_code in code_name_map:
                 del code_name_map[stock_code]
+
+    stock_59days_close_data , kline_10days_data = get_59days_data(code_name_map)
+
+    return code_name_map, stock_59days_close_data , kline_10days_data
+
+
+#获取当前实时价格，再处理
+def get_now_price(code_name_map):
+    data = pytdx_nowdata_stock()
+    result = {}
+    for index, row in data.iterrows():
+        # 确定市场前缀
+        market_prefix = 'sh.' if row['market'] == 1 else 'sz.'
+        # 构造完整股票代码（确保6位数字格式）
+        full_code = market_prefix + str(row['code']).zfill(6)
+
+        # 只处理在code_name_map中存在的股票代码
+        if full_code in code_name_map:
+            result[full_code] = row['price']
+
+    return result
+
+def get_60days_close_data(stock_59days_close_data,now_price):
+    result = {}
+
+    # 遍历所有股票代码
+    for stock_code in stock_59days_close_data:
+        # 检查该股票是否有实时价格
+        if stock_code in now_price:
+            # 获取59个历史收盘价
+            historical_prices = stock_59days_close_data[stock_code]
+            # 获取实时价格
+            current_price = now_price[stock_code]
+            # 组合成60个价格的列表
+            combined_prices = historical_prices + [current_price]
+            # 添加到结果字典
+            result[stock_code] = combined_prices
+
+    return result
+
+
+# 二筛，实时判断
+def apply_stock_filters_second(code_name_map,stock_59days_close_data,kline_10days_data):
+    filter_conditions = {
+        "sma_bullish_alignment": True,  # 均线多头排列
+        "price_greater_sma": True, #当前股价高于5均
+        "bullish_cover_bearish": True #当前股价出现阳包阴
+    }
+
+    now_price = get_now_price(code_name_map)
+    stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
+
+    # 创建字典来存储每只股票的均线值
+    ma_results = {}
+
+    # 遍历所有股票
+    for stock_code, prices in stock_60days_close_data.items():
+        # 计算5日、20日、60日均线
+        ma5 = calculate_sma(prices, 5)
+        ma10 = calculate_sma(prices, 10)
+        ma20 = calculate_sma(prices, 20)
+        ma60 = calculate_sma(prices, 60)
+
+        # 存储计算结果
+        ma_results[stock_code] = {
+            'ma5': ma5,
+            'ma10': ma10,
+            'ma20': ma20,
+            'ma60': ma60,
+            'current_price': prices[-1]  # 最后一个是当前价格
+        }
+    # ------------------------------------------------------------------
+    #均线多头排列
+    if filter_conditions.get("sma_bullish_alignment", True):
+        # 创建待删除的键列表
+        to_remove = []
+
+        # 遍历所有股票，筛选均线多头排列
+        for stock_code, ma_data in ma_results.items():
+            # 检查均线多头排列条件：5日 > 10日 > 20日 > 60日
+            if not (ma_data['ma5'] > ma_data['ma10'] >
+                    ma_data['ma20'] > ma_data['ma60']):
+                to_remove.append(stock_code)
+
+        # 从原字典中删除不满足条件的股票
+        for stock_code in to_remove:
+            if stock_code in code_name_map:
+                del code_name_map[stock_code]
+
+    # ------------------------------------------------------------------
+    # 当前股价高于5均
+    if filter_conditions.get("price_greater_sma", True):
+        # 创建待删除的键列表
+        to_remove = []
+
+        # 遍历所有股票，筛选股价大于5均
+        for stock_code, ma_data in ma_results.items():
+            if not (ma_data['current_price'] > ma_data['ma5']):
+                to_remove.append(stock_code)
+
+        # 从原字典中删除不满足条件的股票
+        for stock_code in to_remove:
+            if stock_code in code_name_map:
+                del code_name_map[stock_code]
+
+    # ------------------------------------------------------------------
+    # 当前股价出现阳包阴
+    if filter_conditions.get("bullish_cover_bearish", True):
+        # 这里将实现阳包阴形态的筛选逻辑
+        pass
 
     return code_name_map
