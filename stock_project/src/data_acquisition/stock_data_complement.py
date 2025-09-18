@@ -60,11 +60,11 @@ def date_get():
             print("区间内无交易日，无需补充数据")
             return None, None
 
-        # 检查是否在有效补充时段（交易日后17:00至次日开盘前）
+        # 检查是否在有效补充时段（交易日后16:00至次日开盘前）
         if next_date.date() == current_date:
-            # 检查当前时间是否在下午5点之后
-            if current_time.hour < 17:
-                print(f"当前时间未到下午5点({current_time.strftime('%H:%M')})，请在17:00后补充当日数据")
+            # 检查当前时间是否在下午4点之后
+            if current_time.hour < 16:
+                print(f"当前时间未到下午4点({current_time.strftime('%H:%M')})，请在16:00后补充当日数据")
                 return None, None  # 未到补充时段返回空值
 
         return next_date.strftime("%Y-%m-%d"), current_datetime.strftime('%Y-%m-%d')
