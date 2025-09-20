@@ -63,9 +63,13 @@ from ..technocal_indicators.get_data_for_indicators import get_59days_data
 #获取实时数据（pytdx）
 from ..src.data_acquisition.stock_get_tdx import pytdx_nowdata_stock
 
+#阳包阴/阴包阳技术获取
 from ..technocal_indicators.get_bullish_bearish import (
     get_bullish_cover_bearish
 )
+
+#股票池
+from ..technocal_indicators.connect_monitoring_pool import connect_monitoring_pool
 
 class StockFilter:
     """
@@ -335,3 +339,9 @@ def apply_stock_filters_second(code_name_map,stock_require_data):
         code_name_map = get_bullish_cover_bearish(code_name_map, kline_10days_data, now_price, open_prices)
 
     return code_name_map
+
+#处理股票为股票池
+def add_to_monitoring_pool(code_name_map):
+    now_price, open_prices = get_now_price(code_name_map)
+    connect_monitoring_pool(code_name_map, now_price)
+    return 0
