@@ -69,3 +69,25 @@ def connect_monitoring_pool(code_name_map, now_price):
                 writer_hist.writerow([code, name, 'entry', current_time, price])
 
     return None
+
+
+def get_monitoring_pool():
+    # 确定目标文件夹路径
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    data_dir = os.path.join(base_dir, 'stock_project', 'data', 'monitoring_pool')
+    pool_file = os.path.join(data_dir, 'monitoring_pool.csv')
+
+    # 如果监控池文件不存在，返回空字典
+    if not os.path.exists(pool_file):
+        return {}
+
+    # 读取监控池文件
+    code_name_map = {}
+    with open(pool_file, 'r', newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            code = row['stock_code']
+            name = row['stock_name']
+            code_name_map[code] = name
+
+    return code_name_map

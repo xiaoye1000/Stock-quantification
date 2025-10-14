@@ -9,6 +9,8 @@
         剔除st股票
     条件3：
         剔除上市4个月内的新股
+    条件4:
+        市值条件筛选，剔除市值大于500亿的股票
 
 条件1：
     均线多头排列，5均在10均之上，10均在20均之上，等等
@@ -17,14 +19,22 @@
 条件3：
     股价出现阳包阴，缓冲30分钟
     即当前股价出现阳线，当前价格超过了上一根阴线的高点
+条件4：
+    剔除在一段区间内，股票震荡格局，即x日内最高最低涨跌幅不超过x，当前股价未超过前x日的某一天最高价
 
 条件5：
     各类技术指标加分
 
 买入仓位策略：
+
+    分仓策略：
+        1.设定开仓最高上限a，开仓最低分仓金额b。
+            资金规模较小时，分仓数较少。资金规模较多时，限制最高开仓数，平均分配资金
+
     加权条件1：
         股价在前a日处于横盘窄幅震荡，波动率不超过b，监控这几日的最高点，
         阳包阴没有超过近日高点减分，超过加分
+
 
 -----------------------------------------------------------------
 卖出/减仓/止损条件：
@@ -65,11 +75,15 @@ from ..src.data_acquisition.stock_get_tdx import pytdx_nowdata_stock
 
 #阳包阴/阴包阳技术获取
 from ..technocal_indicators.get_bullish_bearish import (
-    get_bullish_cover_bearish
+    get_bullish_cover_bearish,
+    get_bearish_cover_bullish
 )
 
 #股票池
-from ..technocal_indicators.connect_monitoring_pool import connect_monitoring_pool
+from ..technocal_indicators.connect_monitoring_pool import (
+    connect_monitoring_pool,
+    get_monitoring_pool
+)
 
 class StockFilter:
     """
@@ -130,7 +144,8 @@ def apply_stock_filters_first(code_name_map):
         "exclude_gem": True,  # 剔除创业板
         "exclude_star_market": True,  # 剔除科创板
         "exclude_st": True,  # 剔除ST股
-        "exclude_new_stock": True  # 剔除新股
+        "exclude_new_stock": True,  # 剔除新股
+        "exclude_market_value":True  #市值筛选
     }
 
     # 检查每个筛选条件
@@ -220,6 +235,12 @@ def apply_stock_filters_first(code_name_map):
         for stock_code in to_remove:
             if stock_code in code_name_map:
                 del code_name_map[stock_code]
+
+    # ------------------------------------------------------------------
+    #剔除市值x亿以上的股票
+    if filter_conditions.get("exclude_market_value", True):
+        # 创建待删除的键列表
+        to_remove = []
 
     stock_59days_close_data , kline_10days_data = get_59days_data(code_name_map)
     stock_require_data = {
@@ -340,8 +361,80 @@ def apply_stock_filters_second(code_name_map,stock_require_data):
 
     return code_name_map
 
+def apply_stock_filters_third(code_name_map,stock_require_data):
+    return None
+
 #处理股票为股票池
 def add_to_monitoring_pool(code_name_map):
     now_price, open_prices = get_now_price(code_name_map)
     connect_monitoring_pool(code_name_map, now_price)
-    return 0
+    return None
+
+#分仓策略
+def stock_position_sizing(total_capital):
+    """
+    股票分仓策略函数
+    :param total_capital: 总资金量（单位：元）
+    :return: (开仓数量, 每只股票分配资金)
+    """
+    # 定义策略参数
+    MIN_POSITION_SIZE = 10000  # 最小分仓金额1万元
+    MAX_POSITIONS = 80  # 最大开仓数量
+
+    # 如果资金不足最小分仓金额，无法开仓
+    if total_capital < MIN_POSITION_SIZE:
+        return 0, 0.0
+
+    # 计算最大可能开仓数量（基于最小分仓金额）
+    max_positions_by_capital = total_capital // MIN_POSITION_SIZE
+
+    # 确定实际开仓数量（不超过上限）
+    position_count = min(max_positions_by_capital, MAX_POSITIONS)
+
+    # 确保至少开1个仓位
+    position_count = max(int(position_count), 1)
+
+    # 计算每只股票分配资金（保留两位小数）
+    capital_per_stock = round(total_capital / position_count, 2)
+
+    return position_count, capital_per_stock
+
+#卖出条件筛选
+def apply_selling_stocks(stock_require_data):
+    filter_conditions = {
+        "price_lower_sma": True,  #股价跌破5日均线
+        "bearish_cover_bullish": True,  #阴包阳
+        "recent_high_retreated": True  #股价在距离近日最高点回撤超过3%
+    }
+    code_name_map = get_monitoring_pool()
+
+    stock_59days_close_data = stock_require_data['close_data']
+    kline_10days_data = stock_require_data['kline_data']
+
+    now_price, open_prices = get_now_price(code_name_map)
+    stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
+
+    # 遍历所有股票
+    for stock_code, prices in stock_60days_close_data.items():
+        # 计算5日、20日、60日均线
+        ma5 = calculate_sma(prices, 5)
+        ma10 = calculate_sma(prices, 10)
+        ma20 = calculate_sma(prices, 20)
+        ma60 = calculate_sma(prices, 60)
+
+    # ------------------------------------------------------------------
+    # 股价跌破5日均线
+    if filter_conditions.get("price_lower_sma", True):
+        pass
+
+    # ------------------------------------------------------------------
+    #股价出现阴包阳
+    if filter_conditions.get("bearish_cover_bullish", True):
+        get_bearish_cover_bullish(code_name_map, kline_10days_data, now_price, open_prices)
+
+    # ------------------------------------------------------------------
+    #股价在距离近日最高点回撤超过3%
+    if filter_conditions.get("bearish_cover_bullish", True):
+        pass
+
+    return None
