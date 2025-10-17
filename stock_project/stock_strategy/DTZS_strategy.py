@@ -85,6 +85,9 @@ from ..technocal_indicators.connect_monitoring_pool import (
     get_monitoring_pool
 )
 
+#市值计算
+from ..technocal_indicators.get_stock_market_value import  filter_by_market_cap
+
 class StockFilter:
     """
     股票筛选器类，用于存储股票表数据
@@ -239,8 +242,7 @@ def apply_stock_filters_first(code_name_map):
     # ------------------------------------------------------------------
     #剔除市值x亿以上的股票
     if filter_conditions.get("exclude_market_value", True):
-        # 创建待删除的键列表
-        to_remove = []
+        code_name_map = filter_by_market_cap(code_name_map)
 
     stock_59days_close_data , kline_10days_data = get_59days_data(code_name_map)
     stock_require_data = {
