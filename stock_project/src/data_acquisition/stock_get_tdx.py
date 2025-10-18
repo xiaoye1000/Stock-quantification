@@ -7,9 +7,6 @@ import os
 import pytdx
 from pytdx.hq import TdxHq_API
 
-#json文件
-import json
-
 #数据库引用
 from ..SQLbase.SQLite_manage import load_stock_mapping
 
@@ -104,19 +101,68 @@ def pytdx_nowdata_stock():
     # 分批获取数据（每次最多80只股票）
     batch_size = 80
     all_data = []
+    total_stocks = len(tdx_list)
+    batch_count = (total_stocks + batch_size - 1) // batch_size
 
-    for i in range(0, len(tdx_list), batch_size):
-        batch = tdx_list[i:i + batch_size]
+    for batch_idx in range(batch_count):
+        start_idx = batch_idx * batch_size
+        end_idx = min(start_idx + batch_size, total_stocks)
+        batch = tdx_list[start_idx:end_idx]
+
         try:
             result = api.get_security_quotes(batch)
             if result:
                 df_batch = api.to_df(result)
                 all_data.append(df_batch)
-                #print(f"已获取批次 {i // batch_size + 1} 数据，包含 {len(df_batch)} 条记录")
+                print(f"已获取批次 {batch_idx + 1}/{batch_count} 数据，包含 {len(df_batch)} 条记录")
             else:
-                print(f"批次 {i // batch_size + 1} 返回空数据")
+                print(f"批次 {batch_idx + 1}/{batch_count} 返回空数据，开始逐个获取...")
+
+                # 逐个获取该批次内的股票
+                single_success = 0
+                single_failed = []
+
+                for market, code in batch:
+                    try:
+                        single_result = api.get_security_quotes([(market, code)])
+                        if single_result:
+                            df_single = api.to_df(single_result)
+                            all_data.append(df_single)
+                            single_success += 1
+                        else:
+                            single_failed.append(f"{'sh' if market == 1 else 'sz'}.{code}")
+                    except Exception as e:
+                        single_failed.append(f"{'sh' if market == 1 else 'sz'}.{code} ({str(e)})")
+
+                # 输出单个获取结果
+                print(f"  单个获取完成: 成功 {single_success} 只, 失败 {len(single_failed)} 只")
+                if single_failed:
+                    print(f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
+
         except Exception as e:
-            print(f"获取批次 {i // batch_size + 1} 数据时出错: {str(e)}")
+            print(f"获取批次 {batch_idx + 1}/{batch_count} 数据时出错: {str(e)}")
+            print(f"  尝试逐个获取该批次股票...")
+
+            # 逐个获取该批次内的股票
+            single_success = 0
+            single_failed = []
+
+            for market, code in batch:
+                try:
+                    single_result = api.get_security_quotes([(market, code)])
+                    if single_result:
+                        df_single = api.to_df(single_result)
+                        all_data.append(df_single)
+                        single_success += 1
+                    else:
+                        single_failed.append(f"{'sh' if market == 1 else 'sz'}.{code}")
+                except Exception as e2:
+                    single_failed.append(f"{'sh' if market == 1 else 'sz'}.{code} ({str(e2)})")
+
+            # 输出单个获取结果
+            print(f"  单个获取完成: 成功 {single_success} 只, 失败 {len(single_failed)} 只")
+            if single_failed:
+                print(f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
 
     api_disconnect(api)
 

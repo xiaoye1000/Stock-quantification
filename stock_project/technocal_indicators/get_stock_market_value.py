@@ -1,3 +1,6 @@
+#计算流通市值的函数
+#以上一交易日的收盘流通市值为准，并非实时数据
+
 from ..src.SQLbase.SQLite_manage import query_one_stock_table
 
 
@@ -60,8 +63,10 @@ def filter_by_market_cap(code_name_map: dict) -> dict:
         # 获取流通市值
         market_cap = get_float_market_cap(stock_code)
 
+        max_market_cap = 5e10
+
         # 检查市值是否有效且小于500亿
-        if market_cap is not None and market_cap < 5e10:  # 500亿 = 5e10
+        if market_cap is not None and market_cap < max_market_cap:  # 500亿 = 5e10
             filtered_map[stock_code] = stock_name
 
     return filtered_map
