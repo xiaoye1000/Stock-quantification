@@ -294,7 +294,8 @@ def apply_stock_filters_second(code_name_map,stock_require_data):
     filter_conditions = {
         "sma_bullish_alignment": True,  # 均线多头排列
         "price_greater_sma": True, #当前股价高于5均
-        "bullish_cover_bearish": True #当前股价出现阳包阴
+        "bullish_cover_bearish": True, #当前股价出现阳包阴
+        "remove_oscillation_stocks":True #剔除震荡格局
     }
 
     stock_59days_close_data = stock_require_data['close_data']
@@ -361,6 +362,11 @@ def apply_stock_filters_second(code_name_map,stock_require_data):
     if filter_conditions.get("bullish_cover_bearish", True):
         code_name_map = get_bullish_cover_bearish(code_name_map, kline_10days_data, now_price, open_prices)
 
+    # ------------------------------------------------------------------
+    # 剔除震荡格局的股票
+    if filter_conditions.get("remove_oscillation_stocks", True):
+        pass
+
     return code_name_map
 
 def apply_stock_filters_third(code_name_map,stock_require_data):
@@ -404,9 +410,9 @@ def stock_position_sizing(total_capital):
 #卖出条件筛选
 def apply_selling_stocks(stock_require_data):
     filter_conditions = {
-        "price_lower_sma": True,  #股价跌破5日均线
-        "bearish_cover_bullish": True,  #阴包阳
-        "recent_high_retreated": True  #股价在距离近日最高点回撤超过3%
+        "price_lower_5sma_and_bearish_cover_bullish": True,  #股价跌破5日均线并且阴包阳
+        "recent_high_retreated": True,  #股价在距离近日最高点回撤超过x%
+        "price_lower_10sma": True, #股价跌破10日均线
     }
     code_name_map = get_monitoring_pool()
 
@@ -416,6 +422,9 @@ def apply_selling_stocks(stock_require_data):
     now_price, open_prices = get_now_price(code_name_map)
     stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
 
+    # 创建字典来存储每只股票的均线值
+    ma_results = {}
+
     # 遍历所有股票
     for stock_code, prices in stock_60days_close_data.items():
         # 计算5日、20日、60日均线
@@ -424,19 +433,46 @@ def apply_selling_stocks(stock_require_data):
         ma20 = calculate_sma(prices, 20)
         ma60 = calculate_sma(prices, 60)
 
+        # 存储计算结果
+        ma_results[stock_code] = {
+            'ma5': ma5,
+            'ma10': ma10,
+            'ma20': ma20,
+            'ma60': ma60,
+            'current_price': prices[-1]  # 最后一个是当前价格
+        }
+
     # ------------------------------------------------------------------
-    # 股价跌破5日均线
-    if filter_conditions.get("price_lower_sma", True):
+    # 股价出现阴包阳并且跌破5日均线
+    if filter_conditions.get("price_lower_5sma_and_bearish_cover_bullish", True):
+        # 创建待删除的键列表
+        to_remove = []
+
+        # 获取阴包阳的股票列表
+        bearish_stocks = get_bearish_cover_bullish(code_name_map, kline_10days_data, now_price, open_prices)
+
+        for stock_code, ma_data in ma_results.items():
+            # 检查是否在阴包阳列表中
+            if stock_code not in bearish_stocks:
+                to_remove.append(stock_code)
+                continue
+
+            # 检查股价是否低于5日均线
+            if not (ma_data['current_price'] < ma_data['ma5']):
+                to_remove.append(stock_code)
+
+        # 从原字典中删除不满足条件的股票
+        for stock_code in to_remove:
+            if stock_code in code_name_map:
+                del code_name_map[stock_code]
+    # ------------------------------------------------------------------
+    #股价在距离近日最高点回撤超过5%
+    if filter_conditions.get("bearish_cover_bullish", True):
         pass
 
     # ------------------------------------------------------------------
-    #股价出现阴包阳
-    if filter_conditions.get("bearish_cover_bullish", True):
-        get_bearish_cover_bullish(code_name_map, kline_10days_data, now_price, open_prices)
-
-    # ------------------------------------------------------------------
-    #股价在距离近日最高点回撤超过3%
-    if filter_conditions.get("bearish_cover_bullish", True):
+    # 股价在距离近日最高点回撤超过5%
+    if filter_conditions.get("price_lower_10sma", True):
         pass
 
     return None
