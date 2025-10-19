@@ -1,10 +1,8 @@
 #用于获取股票行情数据的函数
 
 import pandas as pd
-import os
 
 #接口
-import pytdx
 from pytdx.hq import TdxHq_API
 
 #数据库引用
@@ -89,16 +87,13 @@ def connect_tdx():
     print("所有服务器连接失败，请检查网络")
     return None
 
-def pytdx_nowdata_stock():
-    # 连接服务器
+
+def pytdx_nowdata_stock(verbose=True):  # 添加verbose参数控制输出
     api = connect_tdx()
     if api is None:
         return pd.DataFrame()
 
-    #获取表单
     tdx_list = change_szsh_to_tdx()
-
-    # 分批获取数据（每次最多80只股票）
     batch_size = 80
     all_data = []
     total_stocks = len(tdx_list)
@@ -114,14 +109,14 @@ def pytdx_nowdata_stock():
             if result:
                 df_batch = api.to_df(result)
                 all_data.append(df_batch)
-                print(f"已获取批次 {batch_idx + 1}/{batch_count} 数据，包含 {len(df_batch)} 条记录")
+                if verbose:  # 控制输出
+                    print(f"已获取批次 {batch_idx + 1}/{batch_count} 数据，包含 {len(df_batch)} 条记录")
             else:
-                print(f"批次 {batch_idx + 1}/{batch_count} 返回空数据，开始逐个获取...")
+                if verbose:  # 控制输出
+                    print(f"批次 {batch_idx + 1}/{batch_count} 返回空数据，开始逐个获取...")
 
-                # 逐个获取该批次内的股票
                 single_success = 0
                 single_failed = []
-
                 for market, code in batch:
                     try:
                         single_result = api.get_security_quotes([(market, code)])
@@ -134,19 +129,19 @@ def pytdx_nowdata_stock():
                     except Exception as e:
                         single_failed.append(f"{'sh' if market == 1 else 'sz'}.{code} ({str(e)})")
 
-                # 输出单个获取结果
-                print(f"  单个获取完成: 成功 {single_success} 只, 失败 {len(single_failed)} 只")
-                if single_failed:
-                    print(f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
+                if verbose:  # 控制输出
+                    print(f"  单个获取完成: 成功 {single_success} 只, 失败 {len(single_failed)} 只")
+                    if single_failed:
+                        print(
+                            f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
 
         except Exception as e:
-            print(f"获取批次 {batch_idx + 1}/{batch_count} 数据时出错: {str(e)}")
-            print(f"  尝试逐个获取该批次股票...")
+            if verbose:  # 控制输出
+                print(f"获取批次 {batch_idx + 1}/{batch_count} 数据时出错: {str(e)}")
+                print(f"  尝试逐个获取该批次股票...")
 
-            # 逐个获取该批次内的股票
             single_success = 0
             single_failed = []
-
             for market, code in batch:
                 try:
                     single_result = api.get_security_quotes([(market, code)])
@@ -159,29 +154,22 @@ def pytdx_nowdata_stock():
                 except Exception as e2:
                     single_failed.append(f"{'sh' if market == 1 else 'sz'}.{code} ({str(e2)})")
 
-            # 输出单个获取结果
-            print(f"  单个获取完成: 成功 {single_success} 只, 失败 {len(single_failed)} 只")
-            if single_failed:
-                print(f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
+            if verbose:  # 控制输出
+                print(f"  单个获取完成: 成功 {single_success} 只, 失败 {len(single_failed)} 只")
+                if single_failed:
+                    print(f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
 
     api_disconnect(api)
 
-    # 合并所有批次数据
     if all_data:
         final_df = pd.concat(all_data, ignore_index=True)
-        print(f"成功获取 {len(final_df)} 条股票数据")
+        if verbose:  # 控制最终统计输出
+            print(f"成功获取 {len(final_df)} 条股票数据")
 
-        # 预处理，删除不需要的列
         cols_to_drop = [f'reversed_bytes{i}' for i in range(10)] + ['active1', 'active2']
-        final_df = final_df.drop(columns=cols_to_drop, errors='ignore')  # 忽略不存在的列
-
-        # 保存到CSV文件
-        #filename = f"stock_quotes_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        #final_df.to_csv(filename, index=False, encoding='utf-8-sig')
-        #print(f"数据已保存到 {filename}")
-
+        final_df = final_df.drop(columns=cols_to_drop, errors='ignore')
         return final_df
-
     else:
-        print("未获取到任何数据")
+        if verbose:  # 控制空数据提示
+            print("未获取到任何数据")
         return pd.DataFrame()
