@@ -53,8 +53,6 @@
     加权条件2：
         当日/近日该板块影响分
 """
-#日期
-from datetime import datetime, timedelta
 
 #获取股票池
 from ..src.SQLbase.SQLite_manage import (
@@ -64,20 +62,31 @@ from ..src.SQLbase.SQLite_manage import (
 #获取股票基本数据
 from ..src.data_acquisition.stock_get import bs_query_ipodate
 
+#获取上市日期
+from ..technocal_indicators.get_recent_ipo import get_recent_ipo_stocks
+
 #获取均线
 from ..technocal_indicators.get_sma import (
     calculate_sma
 )
-from ..technocal_indicators.get_data_for_indicators import get_59days_data
 
-#获取实时数据（pytdx）
-from ..src.data_acquisition.stock_get_tdx import pytdx_nowdata_stock
+#获取59日数据，整合当前实时数据为60日数据
+from ..technocal_indicators.get_data_for_indicators import (
+    get_59days_data,
+    get_60days_close_data
+)
+
+#获取当前实时价格
+from ..technocal_indicators.get_now_price import get_now_price
 
 #阳包阴/阴包阳技术获取
 from ..technocal_indicators.get_bullish_bearish import (
     get_bullish_cover_bearish,
     get_bearish_cover_bullish
 )
+
+#回撤函数
+from ..technocal_indicators.profit_pulled_back import profit_pulled_back
 
 #股票池
 from ..technocal_indicators.connect_monitoring_pool import (
@@ -88,52 +97,10 @@ from ..technocal_indicators.connect_monitoring_pool import (
 #市值计算
 from ..technocal_indicators.get_stock_market_value import  filter_by_market_cap
 
-class StockFilter:
-    """
-    股票筛选器类，用于存储股票表数据
-    """
-    def __init__(self):
-        """
-        初始化股票筛选器
-        """
-        # 存储股票表数据
-        self.code_name_map = None  # 初始化为None，稍后可以赋值
-
 #获取全名称代码，在初筛使用
 def get_all_stock_code():
     code_name_map = load_stock_mapping()
     return code_name_map
-
-#获取上市日期
-def get_recent_ipo_stocks(stock_basic_df, months=4):
-    """
-    预处理并对比所有上市日期与当前日期，返回上市时间在指定月数以内的股票代码列表
-    """
-    # 获取当前日期
-    current_date = datetime.now()
-    # 计算阈值日期
-    threshold_date = current_date - timedelta(days = 30*months)  # 简单按30天每月计算
-
-    recent_ipo_stocks = []
-
-    # 创建一个股票代码到上市日期的映射字典
-    for _, row in stock_basic_df.iterrows():
-        code = row['code']
-        ipo_date_str = row['ipoDate']
-
-        try:
-            # 将字符串转换为datetime对象
-            ipo_date = datetime.strptime(ipo_date_str, "%Y-%m-%d")
-
-            # 判断是否在指定月数内
-            if ipo_date > threshold_date:
-                recent_ipo_stocks.append(code)
-        except (ValueError, TypeError):
-            # 日期格式错误或为空，跳过
-            continue
-
-    # 查找指定股票的上市日期
-    return recent_ipo_stocks
 
 #初筛，无需二次判断
 def apply_stock_filters_first(code_name_map):
@@ -251,44 +218,6 @@ def apply_stock_filters_first(code_name_map):
     }
     return code_name_map, stock_require_data
 
-
-#获取当前实时价格，再处理
-def get_now_price(code_name_map):
-    data = pytdx_nowdata_stock()
-    now_price = {}
-    open_prices = {}
-    for index, row in data.iterrows():
-        # 确定市场前缀
-        market_prefix = 'sh.' if row['market'] == 1 else 'sz.'
-        # 构造完整股票代码（确保6位数字格式）
-        full_code = market_prefix + str(row['code']).zfill(6)
-
-        # 只处理在code_name_map中存在的股票代码
-        if full_code in code_name_map:
-            now_price[full_code] = row['price']
-            open_prices[full_code] = row['open']
-
-    return now_price,open_prices
-
-def get_60days_close_data(stock_59days_close_data,now_price):
-    result = {}
-
-    # 遍历所有股票代码
-    for stock_code in stock_59days_close_data:
-        # 检查该股票是否有实时价格
-        if stock_code in now_price:
-            # 获取59个历史收盘价
-            historical_prices = stock_59days_close_data[stock_code]
-            # 获取实时价格
-            current_price = now_price[stock_code]
-            # 组合成60个价格的列表
-            combined_prices = historical_prices + [current_price]
-            # 添加到结果字典
-            result[stock_code] = combined_prices
-
-    return result
-
-
 # 二筛，实时判断
 def apply_stock_filters_second(code_name_map,stock_require_data):
     filter_conditions = {
@@ -369,9 +298,6 @@ def apply_stock_filters_second(code_name_map,stock_require_data):
 
     return code_name_map
 
-def apply_stock_filters_third(code_name_map,stock_require_data):
-    return None
-
 #处理股票为股票池
 def add_to_monitoring_pool(code_name_map):
     now_price, open_prices = get_now_price(code_name_map)
@@ -425,6 +351,9 @@ def apply_selling_stocks(stock_require_data):
     # 创建字典来存储每只股票的均线值
     ma_results = {}
 
+    # 初始化卖出股票列表
+    selling_stocks = []
+
     # 遍历所有股票
     for stock_code, prices in stock_60days_close_data.items():
         # 计算5日、20日、60日均线
@@ -445,34 +374,28 @@ def apply_selling_stocks(stock_require_data):
     # ------------------------------------------------------------------
     # 股价出现阴包阳并且跌破5日均线
     if filter_conditions.get("price_lower_5sma_and_bearish_cover_bullish", True):
-        # 创建待删除的键列表
-        to_remove = []
-
         # 获取阴包阳的股票列表
         bearish_stocks = get_bearish_cover_bullish(code_name_map, kline_10days_data, now_price, open_prices)
 
         for stock_code, ma_data in ma_results.items():
             # 检查是否在阴包阳列表中
-            if stock_code not in bearish_stocks:
-                to_remove.append(stock_code)
-                continue
+            if stock_code in bearish_stocks:
+                # 检查股价是否低于5日均线
+                if ma_data['current_price'] < ma_data['ma5']:
+                    selling_stocks.append(stock_code)
 
-            # 检查股价是否低于5日均线
-            if not (ma_data['current_price'] < ma_data['ma5']):
-                to_remove.append(stock_code)
-
-        # 从原字典中删除不满足条件的股票
-        for stock_code in to_remove:
-            if stock_code in code_name_map:
-                del code_name_map[stock_code]
     # ------------------------------------------------------------------
     #股价在距离近日最高点回撤超过5%
     if filter_conditions.get("bearish_cover_bullish", True):
-        pass
+        pulled_back_stocks = profit_pulled_back(code_name_map,kline_10days_data,now_price)
+        selling_stocks.append(pulled_back_stocks)
 
     # ------------------------------------------------------------------
-    # 股价在距离近日最高点回撤超过5%
+    # 股价跌破10日均线
     if filter_conditions.get("price_lower_10sma", True):
-        pass
+        for stock_code, ma_data in ma_results.items():
+            # 检查股价是否低于10日均线
+            if ma_data['current_price'] < ma_data['ma10']:
+                selling_stocks.append(stock_code)
 
-    return None
+    return list(set(selling_stocks))

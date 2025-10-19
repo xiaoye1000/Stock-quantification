@@ -84,3 +84,21 @@ def get_59days_data(code_name_map):
         result_dict_kline[stock_code] = kline_status_list
 
     return result_dict_close , result_dict_kline
+
+def get_60days_close_data(stock_59days_close_data,now_price):
+    result = {}
+
+    # 遍历所有股票代码
+    for stock_code in stock_59days_close_data:
+        # 检查该股票是否有实时价格
+        if stock_code in now_price:
+            # 获取59个历史收盘价
+            historical_prices = stock_59days_close_data[stock_code]
+            # 获取实时价格
+            current_price = now_price[stock_code]
+            # 组合成60个价格的列表
+            combined_prices = historical_prices + [current_price]
+            # 添加到结果字典
+            result[stock_code] = combined_prices
+
+    return result
