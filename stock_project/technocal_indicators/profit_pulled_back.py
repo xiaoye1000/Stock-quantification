@@ -18,14 +18,14 @@ def profit_pulled_back(code_name_map,kline_10days_data,now_price):
         if len(kline_data) == 0:
             continue
 
-        # 获取近5日数据（最多取最后5个交易日）
-        recent_days = min(5, len(kline_data))
-        last_5_days = kline_data[-recent_days:]
+        # 获取近3日数据（最多取最后3个交易日）
+        recent_days = min(3, len(kline_data))
+        last_3_days = kline_data[-recent_days:]
 
-        # 计算近5日最高价
-        max_high = max(day_data[0] for day_data in last_5_days)  # 假设day_data[0]是最高价
+        # 计算近3日最高收盘价
+        max_high = max(day_data[4] for day_data in last_3_days)
 
-        pulled_back = 0.05
+        pulled_back = 0.1
 
         # 计算回撤比例（避免除零错误）
         if max_high > 0:

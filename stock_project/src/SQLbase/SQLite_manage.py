@@ -244,7 +244,6 @@ def _query_one_stock_table(db_file: str, table_name: str, stock_code: str) -> Un
         if 'code' not in columns:
             return f"表 '{table_name}' 中不存在 'code' 列"
 
-        # 使用参数化查询防止SQL注入
         query = f"SELECT * FROM {table_name} WHERE code = ?"
         df = pd.read_sql_query(query, conn,params=[stock_code])
 

@@ -41,7 +41,7 @@
 条件1：
     股价出现阴包阳并且跌破五日均线
 条件2：
-    股价在距离近日最高点回撤超过x
+    股价在距离近日最高收盘价回撤超过x
 条件3：
     当日跌幅达到a以下，超过半个小时，或者当日跌幅达到b以下
 条件4：
@@ -91,7 +91,7 @@ from ..technocal_indicators.profit_pulled_back import profit_pulled_back
 #股票池
 from ..technocal_indicators.connect_monitoring_pool import (
     connect_monitoring_pool,
-    get_monitoring_pool
+    remove_from_monitoring_pool
 )
 
 #市值计算
@@ -212,14 +212,14 @@ def apply_stock_filters_first(code_name_map):
         code_name_map = filter_by_market_cap(code_name_map)
 
     stock_59days_close_data , kline_10days_data = get_59days_data(code_name_map)
-    stock_require_data = {
+    stock_require_data_buy = {
         'close_data': stock_59days_close_data,  # 59天收盘价数据
         'kline_data': kline_10days_data  # 10天K线数据
     }
-    return code_name_map, stock_require_data
+    return code_name_map, stock_require_data_buy
 
 # 二筛，实时判断
-def apply_stock_filters_second(code_name_map,stock_require_data):
+def apply_stock_filters_second(code_name_map,stock_require_data_buy):
     filter_conditions = {
         "sma_bullish_alignment": True,  # 均线多头排列
         "price_greater_sma": True, #当前股价高于5均
@@ -227,8 +227,8 @@ def apply_stock_filters_second(code_name_map,stock_require_data):
         "remove_oscillation_stocks":True #剔除震荡格局
     }
 
-    stock_59days_close_data = stock_require_data['close_data']
-    kline_10days_data = stock_require_data['kline_data']
+    stock_59days_close_data = stock_require_data_buy['close_data']
+    kline_10days_data = stock_require_data_buy['kline_data']
 
     now_price , open_prices = get_now_price(code_name_map)
     stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
@@ -304,6 +304,12 @@ def add_to_monitoring_pool(code_name_map):
     connect_monitoring_pool(code_name_map, now_price)
     return None
 
+#
+def remove_stock_from_monitoring_pool(code_name_map):
+    now_price, open_prices = get_now_price(code_name_map)
+    remove_from_monitoring_pool(code_name_map, now_price)
+    return None
+
 #分仓策略
 def stock_position_sizing(total_capital):
     """
@@ -334,16 +340,25 @@ def stock_position_sizing(total_capital):
     return position_count, capital_per_stock
 
 #卖出条件筛选
-def apply_selling_stocks(stock_require_data):
+#预处理数据
+def apply_selling_stocks_first(code_name_map):
+    stock_59days_close_data, kline_10days_data = get_59days_data(code_name_map)
+    stock_require_data_sell = {
+        'close_data': stock_59days_close_data,  # 59天收盘价数据
+        'kline_data': kline_10days_data  # 10天K线数据
+    }
+    return code_name_map, stock_require_data_sell
+
+#第二次，正式处理
+def apply_selling_stocks_second(code_name_map,stock_require_data_sell):
     filter_conditions = {
         "price_lower_5sma_and_bearish_cover_bullish": True,  #股价跌破5日均线并且阴包阳
         "recent_high_retreated": True,  #股价在距离近日最高点回撤超过x%
         "price_lower_10sma": True, #股价跌破10日均线
     }
-    code_name_map = get_monitoring_pool()
 
-    stock_59days_close_data = stock_require_data['close_data']
-    kline_10days_data = stock_require_data['kline_data']
+    stock_59days_close_data = stock_require_data_sell['close_data']
+    kline_10days_data = stock_require_data_sell['kline_data']
 
     now_price, open_prices = get_now_price(code_name_map)
     stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
@@ -352,7 +367,7 @@ def apply_selling_stocks(stock_require_data):
     ma_results = {}
 
     # 初始化卖出股票列表
-    selling_stocks = []
+    selling_stocks_dict = {}
 
     # 遍历所有股票
     for stock_code, prices in stock_60days_close_data.items():
@@ -378,17 +393,19 @@ def apply_selling_stocks(stock_require_data):
         bearish_stocks = get_bearish_cover_bullish(code_name_map, kline_10days_data, now_price, open_prices)
 
         for stock_code, ma_data in ma_results.items():
-            # 检查是否在阴包阳列表中
-            if stock_code in bearish_stocks:
-                # 检查股价是否低于5日均线
-                if ma_data['current_price'] < ma_data['ma5']:
-                    selling_stocks.append(stock_code)
+            if stock_code not in selling_stocks_dict:
+                if stock_code in bearish_stocks and ma_data['current_price'] < ma_data['ma5']:
+                    # 直接添加到字典
+                    selling_stocks_dict[stock_code] = code_name_map.get(stock_code, "未知股票")
 
     # ------------------------------------------------------------------
-    #股价在距离近日最高点回撤超过5%
-    if filter_conditions.get("bearish_cover_bullish", True):
+    #股价在距离近日最高收盘价回撤超过10%
+    if filter_conditions.get("recent_high_retreated", True):
         pulled_back_stocks = profit_pulled_back(code_name_map,kline_10days_data,now_price)
-        selling_stocks.append(pulled_back_stocks)
+        for stock_code, stock_name in pulled_back_stocks.items():
+            # 只添加尚未存在的股票
+            if stock_code not in selling_stocks_dict:
+                selling_stocks_dict[stock_code] = stock_name
 
     # ------------------------------------------------------------------
     # 股价跌破10日均线
@@ -396,6 +413,7 @@ def apply_selling_stocks(stock_require_data):
         for stock_code, ma_data in ma_results.items():
             # 检查股价是否低于10日均线
             if ma_data['current_price'] < ma_data['ma10']:
-                selling_stocks.append(stock_code)
+                if stock_code not in selling_stocks_dict:
+                    selling_stocks_dict[stock_code] = code_name_map.get(stock_code, "未知股票")
 
-    return list(set(selling_stocks))
+    return selling_stocks_dict

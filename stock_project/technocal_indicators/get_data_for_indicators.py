@@ -38,6 +38,10 @@ def get_59days_data(code_name_map):
         stock_data: pd.DataFrame = query_one_stock_table(table_name, stock_code)
         stock_data = stock_data[stock_data['tradestatus'] == 1]
 
+        # 确保数据按日期升序排列（最早日期在前）
+        stock_data = stock_data.sort_values(by='date', ascending=True)
+        stock_data = stock_data.reset_index(drop=True)  # 重置索引确保顺序
+
         #----------------------------------------------------
         # 获取1：获取最后59个交易日的收盘价数据
         if after_close:
@@ -78,7 +82,9 @@ def get_59days_data(code_name_map):
             kline_status_list.append([
                 current_day['high'],
                 current_day['low'],
-                status
+                status,
+                current_day['open'],
+                current_day['close']
             ])
 
         result_dict_kline[stock_code] = kline_status_list

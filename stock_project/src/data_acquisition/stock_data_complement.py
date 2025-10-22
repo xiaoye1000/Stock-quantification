@@ -30,6 +30,7 @@ def date_get():
             print('数库据数据为空，或无法查询')
             return None, None
 
+        data = data.sort_values(by='date')
         last_date_str = data['date'].iloc[-1]  # 直接取最后一行日期
 
         # 将字符串转换为 datetime 对象
@@ -37,6 +38,8 @@ def date_get():
 
         # 加一天
         next_date = last_date + timedelta(days=1)
+        while not is_trade_day(next_date.date()):
+            next_date += timedelta(days=1)
 
         # 获取当前天
         current_datetime = datetime.now()

@@ -88,7 +88,7 @@ def connect_tdx():
     return None
 
 
-def pytdx_nowdata_stock(verbose=True):  # 添加verbose参数控制输出
+def pytdx_nowdata_stock(verbose=False):  # 添加verbose参数控制输出
     api = connect_tdx()
     if api is None:
         return pd.DataFrame()
