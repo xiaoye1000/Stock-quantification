@@ -88,10 +88,17 @@ def connect_tdx():
     return None
 
 
-def pytdx_nowdata_stock(verbose=False):  # 添加verbose参数控制输出
-    api = connect_tdx()
+def pytdx_nowdata_stock(api=None,verbose=False):  # 添加verbose参数控制输出
+
+    disconnect_needed = False
+
     if api is None:
-        return pd.DataFrame()
+        api = connect_tdx()
+        if api is None:
+            if verbose:
+                print("连接失败，无法获取数据")
+            return pd.DataFrame()
+        disconnect_needed = True  # 标记需要断开连接
 
     tdx_list = change_szsh_to_tdx()
     batch_size = 80
@@ -159,7 +166,8 @@ def pytdx_nowdata_stock(verbose=False):  # 添加verbose参数控制输出
                 if single_failed:
                     print(f"  失败股票列表: {', '.join(single_failed[:5])}{'...' if len(single_failed) > 5 else ''}")
 
-    api_disconnect(api)
+    if disconnect_needed:
+        api_disconnect(api)
 
     if all_data:
         final_df = pd.concat(all_data, ignore_index=True)

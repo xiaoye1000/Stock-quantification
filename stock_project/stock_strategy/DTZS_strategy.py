@@ -219,7 +219,7 @@ def apply_stock_filters_first(code_name_map):
     return code_name_map, stock_require_data_buy
 
 # 二筛，实时判断
-def apply_stock_filters_second(code_name_map,stock_require_data_buy):
+def apply_stock_filters_second(code_name_map,stock_require_data_buy,api):
     filter_conditions = {
         "sma_bullish_alignment": True,  # 均线多头排列
         "price_greater_sma": True, #当前股价高于5均
@@ -230,7 +230,7 @@ def apply_stock_filters_second(code_name_map,stock_require_data_buy):
     stock_59days_close_data = stock_require_data_buy['close_data']
     kline_10days_data = stock_require_data_buy['kline_data']
 
-    now_price , open_prices = get_now_price(code_name_map)
+    now_price , open_prices = get_now_price(code_name_map,api)
     stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
 
     # 创建字典来存储每只股票的均线值
@@ -299,14 +299,14 @@ def apply_stock_filters_second(code_name_map,stock_require_data_buy):
     return code_name_map
 
 #处理股票为股票池
-def add_to_monitoring_pool(code_name_map):
-    now_price, open_prices = get_now_price(code_name_map)
+def add_to_monitoring_pool(code_name_map,api):
+    now_price, open_prices = get_now_price(code_name_map,api)
     connect_monitoring_pool(code_name_map, now_price)
     return None
 
 #
-def remove_stock_from_monitoring_pool(code_name_map):
-    now_price, open_prices = get_now_price(code_name_map)
+def remove_stock_from_monitoring_pool(code_name_map,api):
+    now_price, open_prices = get_now_price(code_name_map,api)
     remove_from_monitoring_pool(code_name_map, now_price)
     return None
 
@@ -350,7 +350,7 @@ def apply_selling_stocks_first(code_name_map):
     return code_name_map, stock_require_data_sell
 
 #第二次，正式处理
-def apply_selling_stocks_second(code_name_map,stock_require_data_sell):
+def apply_selling_stocks_second(code_name_map,stock_require_data_sell,api):
     filter_conditions = {
         "price_lower_5sma_and_bearish_cover_bullish": True,  #股价跌破5日均线并且阴包阳
         "recent_high_retreated": True,  #股价在距离近日最高点回撤超过x%
@@ -360,7 +360,7 @@ def apply_selling_stocks_second(code_name_map,stock_require_data_sell):
     stock_59days_close_data = stock_require_data_sell['close_data']
     kline_10days_data = stock_require_data_sell['kline_data']
 
-    now_price, open_prices = get_now_price(code_name_map)
+    now_price, open_prices = get_now_price(code_name_map,api)
     stock_60days_close_data = get_60days_close_data(stock_59days_close_data, now_price)
 
     # 创建字典来存储每只股票的均线值

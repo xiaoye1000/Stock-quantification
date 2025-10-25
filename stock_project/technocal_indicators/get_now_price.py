@@ -3,8 +3,8 @@
 #获取实时数据（pytdx）
 from ..src.data_acquisition.stock_get_tdx import pytdx_nowdata_stock
 
-def get_now_price(code_name_map):
-    data = pytdx_nowdata_stock()
+def get_now_price(code_name_map,api):
+    data = pytdx_nowdata_stock(api=api)
     now_price = {}
     open_prices = {}
     for index, row in data.iterrows():
