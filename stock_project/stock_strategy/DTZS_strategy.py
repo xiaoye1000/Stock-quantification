@@ -224,7 +224,8 @@ def apply_stock_filters_second(code_name_map,stock_require_data_buy,api):
         "sma_bullish_alignment": True,  # 均线多头排列
         "price_greater_sma": True, #当前股价高于5均
         "bullish_cover_bearish": True, #当前股价出现阳包阴
-        "remove_oscillation_stocks":True #剔除震荡格局
+        "remove_oscillation_stocks":True, #剔除震荡格局
+        "price_increased_within_year": True #年内涨幅已经增长为x
     }
 
     stock_59days_close_data = stock_require_data_buy['close_data']
